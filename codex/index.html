@@ -1,0 +1,1720 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scheduler - OUROBOROS</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080a09;
+      --panel: #101310;
+      --panel-2: #141813;
+      --panel-3: #191e18;
+      --line: rgba(218, 232, 211, 0.13);
+      --line-strong: rgba(218, 232, 211, 0.22);
+      --text: #edf5ea;
+      --muted: #aab5a4;
+      --faint: #74806f;
+      --green: #7ef2a0;
+      --green-2: #1fcf75;
+      --amber: #f4bd63;
+      --red: #ff6b6b;
+      --cyan: #66d9f0;
+      --violet: #b6a5ff;
+      --ink: #040504;
+      --radius: 8px;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--bg);
+    }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      color: var(--text);
+      background:
+        linear-gradient(rgba(126, 242, 160, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126, 242, 160, 0.03) 1px, transparent 1px),
+        #080a09;
+      background-size: 34px 34px, 34px 34px, auto;
+      font-family: var(--sans);
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--cyan);
+      outline-offset: 2px;
+    }
+
+    .app {
+      width: min(1440px, calc(100vw - 36px));
+      margin: 0 auto;
+      padding: 22px 0 32px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto auto;
+      gap: 16px;
+      align-items: center;
+      padding: 14px 0 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .mark {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(126, 242, 160, 0.44);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(135deg, rgba(126, 242, 160, 0.18), rgba(102, 217, 240, 0.05)),
+        #0b100c;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      flex: 0 0 auto;
+    }
+
+    .mark::before,
+    .mark::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(126, 242, 160, 0.56);
+    }
+
+    .mark::before {
+      width: 7px;
+      height: 7px;
+      left: 11px;
+      top: 11px;
+    }
+
+    .mark::after {
+      width: 9px;
+      height: 9px;
+      right: 10px;
+      bottom: 10px;
+    }
+
+    .mark-line {
+      position: absolute;
+      left: 15px;
+      top: 18px;
+      width: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+      transform: rotate(38deg);
+      transform-origin: left center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 3.25rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .eyebrow {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .scope-control {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(16, 19, 16, 0.78);
+    }
+
+    .scope-button {
+      min-height: 36px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 13px;
+      color: var(--muted);
+      background: transparent;
+      white-space: nowrap;
+    }
+
+    .scope-button[aria-pressed="true"] {
+      color: var(--ink);
+      background: var(--green);
+      box-shadow: 0 10px 24px rgba(126, 242, 160, 0.16);
+    }
+
+    .primary-button,
+    .secondary-button,
+    .ghost-button,
+    .icon-button,
+    .danger-button {
+      border-radius: var(--radius);
+      border: 1px solid var(--line-strong);
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 13px;
+      color: var(--text);
+      background: #171b16;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    .primary-button {
+      color: var(--ink);
+      border-color: rgba(126, 242, 160, 0.74);
+      background: linear-gradient(180deg, #97ffb2, #65e790);
+      font-weight: 720;
+      box-shadow: 0 12px 30px rgba(126, 242, 160, 0.18);
+    }
+
+    .secondary-button {
+      background: #171c16;
+    }
+
+    .ghost-button {
+      border-color: transparent;
+      color: var(--muted);
+      background: transparent;
+    }
+
+    .danger-button {
+      border-color: rgba(255, 107, 107, 0.35);
+      color: #ffd3d3;
+      background: rgba(255, 107, 107, 0.08);
+    }
+
+    .icon-button {
+      width: 38px;
+      padding: 0;
+      color: var(--muted);
+      background: rgba(20, 24, 19, 0.82);
+    }
+
+    .primary-button:hover,
+    .secondary-button:hover,
+    .ghost-button:hover,
+    .icon-button:hover,
+    .danger-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(237, 245, 234, 0.34);
+    }
+
+    .primary-button:disabled,
+    .secondary-button:disabled,
+    .ghost-button:disabled,
+    .icon-button:disabled,
+    .danger-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.72;
+      transform: none;
+    }
+
+    .icon {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .health-strip {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1.25fr repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .health-card,
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(16, 19, 16, 0.88);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .health-card {
+      min-height: 92px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .health-card.is-good {
+      border-color: rgba(126, 242, 160, 0.36);
+      background:
+        linear-gradient(135deg, rgba(126, 242, 160, 0.13), transparent 62%),
+        rgba(16, 19, 16, 0.92);
+    }
+
+    .health-card.is-warn {
+      border-color: rgba(244, 189, 99, 0.32);
+    }
+
+    .health-card.is-bad {
+      border-color: rgba(255, 107, 107, 0.34);
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .metric-value {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 12px;
+      font-size: clamp(1.3rem, 2vw, 1.9rem);
+      font-weight: 760;
+      line-height: 1;
+    }
+
+    .metric-sub {
+      color: var(--faint);
+      font-size: 0.82rem;
+      margin-top: 8px;
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(20, 24, 19, 0.7);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0;
+    }
+
+    .panel-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 260px);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      min-width: 1090px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 13px 12px;
+      border-bottom: 1px solid rgba(218, 232, 211, 0.09);
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      color: var(--faint);
+      background: #111510;
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 720;
+    }
+
+    tbody tr {
+      transition: background 140ms ease;
+    }
+
+    tbody tr:hover {
+      background: rgba(126, 242, 160, 0.045);
+    }
+
+    .schedule-name {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 720;
+      min-width: 230px;
+    }
+
+    .row-index {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      color: var(--green);
+      background: rgba(126, 242, 160, 0.09);
+      border: 1px solid rgba(126, 242, 160, 0.14);
+      font: 700 0.78rem/1 var(--mono);
+    }
+
+    .cadence {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 150px;
+    }
+
+    .primary-line {
+      color: var(--text);
+      font-weight: 670;
+      white-space: nowrap;
+    }
+
+    .secondary-line,
+    .mono {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .task-type {
+      max-width: 190px;
+      color: #dce8d7;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scope-pill,
+    .llm-badge,
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 0 9px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 0.76rem;
+      white-space: nowrap;
+    }
+
+    .scope-pill.system {
+      color: #bbffd0;
+      border-color: rgba(126, 242, 160, 0.27);
+      background: rgba(126, 242, 160, 0.08);
+    }
+
+    .scope-pill.cortex {
+      color: #bdf3ff;
+      border-color: rgba(102, 217, 240, 0.28);
+      background: rgba(102, 217, 240, 0.08);
+    }
+
+    .scope-pill.account {
+      color: #ddd5ff;
+      border-color: rgba(182, 165, 255, 0.3);
+      background: rgba(182, 165, 255, 0.08);
+    }
+
+    .llm-badge.yes {
+      color: #ddd5ff;
+      border-color: rgba(182, 165, 255, 0.34);
+      background: rgba(182, 165, 255, 0.1);
+    }
+
+    .llm-badge.no {
+      color: #b7c1b2;
+      border-color: rgba(218, 232, 211, 0.13);
+      background: rgba(218, 232, 211, 0.04);
+    }
+
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      border: 1px solid rgba(218, 232, 211, 0.22);
+      border-radius: 999px;
+      background: #20251e;
+      padding: 0;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #ccd6c7;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .toggle[aria-pressed="true"] {
+      border-color: rgba(126, 242, 160, 0.74);
+      background: rgba(126, 242, 160, 0.24);
+    }
+
+    .toggle[aria-pressed="true"]::after {
+      transform: translateX(20px);
+      background: var(--green);
+    }
+
+    .time-cell {
+      min-width: 124px;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      display: inline-block;
+      flex: 0 0 auto;
+      background: var(--faint);
+      box-shadow: 0 0 0 3px rgba(116, 128, 111, 0.1);
+    }
+
+    .status-dot.completed,
+    .status-chip.completed .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 0 3px rgba(126, 242, 160, 0.12);
+    }
+
+    .status-dot.running,
+    .status-chip.running .status-dot {
+      background: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(102, 217, 240, 0.12);
+      animation: pulse 1.1s ease-in-out infinite;
+    }
+
+    .status-dot.pending,
+    .status-chip.pending .status-dot {
+      background: var(--amber);
+      box-shadow: 0 0 0 3px rgba(244, 189, 99, 0.12);
+    }
+
+    .status-dot.failed,
+    .status-chip.failed .status-dot {
+      background: var(--red);
+      box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.12);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    .status-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 4px;
+      white-space: nowrap;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .run-now {
+      min-width: 92px;
+    }
+
+    .run-now.is-busy {
+      color: var(--ink);
+      background: var(--amber);
+      border-color: var(--amber);
+    }
+
+    .runs-panel {
+      min-height: 440px;
+    }
+
+    .runs-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .state-select {
+      min-height: 34px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #111510;
+      padding: 0 10px;
+    }
+
+    .runs-list {
+      padding: 8px;
+    }
+
+    .run-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 13px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+    }
+
+    .run-item + .run-item {
+      margin-top: 4px;
+    }
+
+    .run-item:hover {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.028);
+    }
+
+    .run-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 720;
+    }
+
+    .run-meta,
+    .run-result {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 6px;
+      line-height: 1.35;
+    }
+
+    .run-result {
+      color: #cbd8c5;
+      word-break: break-word;
+    }
+
+    .duration {
+      color: var(--faint);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      padding-top: 2px;
+    }
+
+    .state-view {
+      min-height: 330px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 26px;
+      text-align: center;
+    }
+
+    .state-box {
+      width: min(300px, 100%);
+    }
+
+    .state-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.035);
+      color: var(--green);
+    }
+
+    .state-title {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .state-copy {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 0.9rem;
+    }
+
+    .skeleton {
+      width: 100%;
+      height: 74px;
+      border-radius: var(--radius);
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.045));
+      background-size: 220% 100%;
+      animation: shimmer 1.35s ease-in-out infinite;
+      margin-bottom: 8px;
+    }
+
+    @keyframes shimmer {
+      from { background-position: 120% 0; }
+      to { background-position: -120% 0; }
+    }
+
+    .toast-region {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      display: grid;
+      gap: 10px;
+      z-index: 60;
+      width: min(390px, calc(100vw - 36px));
+    }
+
+    .toast {
+      border: 1px solid rgba(126, 242, 160, 0.28);
+      border-radius: var(--radius);
+      padding: 12px 13px;
+      background: rgba(16, 19, 16, 0.96);
+      box-shadow: var(--shadow);
+      color: var(--text);
+    }
+
+    .toast strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .toast span {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      align-items: stretch;
+      justify-content: flex-end;
+      background: rgba(0, 0, 0, 0.62);
+    }
+
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .drawer {
+      width: min(540px, 100vw);
+      min-height: 100%;
+      border-left: 1px solid var(--line-strong);
+      background: #0d100d;
+      box-shadow: -24px 0 60px rgba(0, 0, 0, 0.42);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drawer-header {
+      padding: 22px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .drawer-title {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .drawer-copy {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.4;
+      font-size: 0.9rem;
+    }
+
+    .schedule-form {
+      padding: 18px 22px 22px;
+      display: grid;
+      gap: 15px;
+      overflow: auto;
+    }
+
+    .form-row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    label {
+      color: #dfe9da;
+      font-weight: 680;
+      font-size: 0.86rem;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      color: var(--text);
+      background: #131713;
+      min-height: 40px;
+      padding: 9px 10px;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .helper {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    .error-text {
+      min-height: 1rem;
+      color: #ff9f9f;
+      font-size: 0.8rem;
+    }
+
+    .field-error input,
+    .field-error select,
+    .field-error textarea {
+      border-color: rgba(255, 107, 107, 0.72);
+      box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.08);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+    }
+
+    .checkbox-row input {
+      width: 18px;
+      height: 18px;
+      min-height: 18px;
+      accent-color: var(--green);
+    }
+
+    .drawer-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 6px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .empty-table {
+      padding: 42px 18px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1180px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .scope-control {
+        overflow-x: auto;
+        justify-content: flex-start;
+      }
+
+      .primary-button {
+        justify-self: start;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .table-wrap {
+        max-height: none;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        width: min(100vw - 22px, 760px);
+        padding-top: 10px;
+      }
+
+      .health-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .health-card:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .health-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .brand {
+        align-items: flex-start;
+      }
+
+      .scope-button {
+        padding: 0 10px;
+      }
+
+      .panel-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"><span class="mark-line"></span></div>
+        <div>
+          <h1>Scheduler</h1>
+          <div class="eyebrow">OUROBOROS recurring jobs control surface</div>
+        </div>
+      </div>
+
+      <nav class="scope-control" aria-label="Scope selector">
+        <button class="scope-button" type="button" data-scope="all" aria-pressed="true">All</button>
+        <button class="scope-button" type="button" data-scope="system" aria-pressed="false">Ouro Boros</button>
+        <button class="scope-button" type="button" data-scope="cortex" aria-pressed="false">Cortex</button>
+        <button class="scope-button" type="button" data-scope="ai-ops-user" aria-pressed="false">This account</button>
+      </nav>
+
+      <button class="primary-button" id="newScheduleButton" type="button">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+        New schedule
+      </button>
+    </header>
+
+    <main class="layout">
+      <section class="health-strip" aria-label="Scheduler loop health" id="healthStrip"></section>
+
+      <section class="panel schedules-panel" aria-labelledby="schedulesTitle">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="schedulesTitle">Schedules</h2>
+            <p class="panel-subtitle" id="schedulesSubtitle">9 schedules across all scopes</p>
+          </div>
+          <button class="secondary-button" type="button" id="refreshButton">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.6 6.1"></path><path d="M3 12A9 9 0 0 1 18.6 5.9"></path><path d="M3 20v-6h6"></path><path d="M21 4v6h-6"></path></svg>
+            Refresh
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Schedule</th>
+                <th scope="col">Cadence</th>
+                <th scope="col">Task</th>
+                <th scope="col">Scope</th>
+                <th scope="col">Enabled</th>
+                <th scope="col">LLM</th>
+                <th scope="col">Last run</th>
+                <th scope="col">Next run</th>
+                <th scope="col">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="schedulesBody"></tbody>
+          </table>
+          <div class="empty-table" id="scheduleEmpty" hidden>No schedules match this scope.</div>
+        </div>
+      </section>
+
+      <aside class="panel runs-panel" aria-labelledby="runsTitle">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title" id="runsTitle">Recent runs</h2>
+            <p class="panel-subtitle" id="runsSubtitle">Live task activity</p>
+          </div>
+          <div class="runs-toolbar">
+            <label class="sr-only" for="runsStateSelect">Runs panel state</label>
+            <select class="state-select" id="runsStateSelect">
+              <option value="live">Live</option>
+              <option value="loading">Loading</option>
+              <option value="empty">Empty</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+        </div>
+        <div class="runs-list" id="runsList"></div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="scheduleModal" role="presentation">
+    <section class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-header">
+        <div>
+          <h2 class="drawer-title" id="drawerTitle">New schedule</h2>
+          <p class="drawer-copy">Draft a recurring operator job with cadence, scope, and payload.</p>
+        </div>
+        <button class="icon-button" type="button" id="closeModalButton" aria-label="Close schedule form">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <form class="schedule-form" id="scheduleForm" novalidate>
+        <div class="form-row" data-field="name">
+          <label for="scheduleName">Name</label>
+          <input id="scheduleName" name="name" autocomplete="off" placeholder="e.g. account.weekly-review" required>
+          <div class="error-text" id="nameError" aria-live="polite"></div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-row" data-field="cron">
+            <label for="scheduleCron">Cron expression</label>
+            <input id="scheduleCron" name="cron" autocomplete="off" placeholder="*/15 * * * *" required>
+            <div class="helper" id="cronHelper">Use five fields. Supported examples translate instantly.</div>
+            <div class="error-text" id="cronError" aria-live="polite"></div>
+          </div>
+
+          <div class="form-row" data-field="scope">
+            <label for="scheduleScope">Scope</label>
+            <select id="scheduleScope" name="scope" required>
+              <option value="system">Ouro Boros</option>
+              <option value="cortex">Cortex</option>
+              <option value="ai-ops-user">This account</option>
+            </select>
+            <div class="error-text" id="scopeError" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div class="form-row" data-field="task_type">
+          <label for="scheduleTaskType">Task type</label>
+          <input id="scheduleTaskType" name="task_type" autocomplete="off" placeholder="account.daily_brief" required>
+          <div class="error-text" id="task_typeError" aria-live="polite"></div>
+        </div>
+
+        <div class="form-row" data-field="payload">
+          <label for="schedulePayload">Payload JSON</label>
+          <textarea id="schedulePayload" name="payload" spellcheck="false">{
+  "source": "operator",
+  "priority": "normal"
+}</textarea>
+          <div class="error-text" id="payloadError" aria-live="polite"></div>
+        </div>
+
+        <label class="checkbox-row" for="scheduleEnabled">
+          <input id="scheduleEnabled" name="enabled" type="checkbox" checked>
+          Enabled on creation
+        </label>
+
+        <div class="drawer-actions">
+          <button class="ghost-button" type="button" id="cancelModalButton">Cancel</button>
+          <button class="primary-button" type="submit">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path></svg>
+            Create schedule
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    const MOCK_DATA = {
+      "loop": { "alive": true, "tick_seconds": 60, "last_tick": "2026-06-01T02:34:10Z" },
+      "schedules": [
+        { "id": "1", "name": "shadow-heartbeat",       "scope": "system",      "cron": "*/5 * * * *",   "task_type": "shadow.heartbeat",      "enabled": true,  "requires_llm": false, "last_run": "2026-06-01T02:30:00Z", "last_status": "completed", "next_run": "2026-06-01T02:35:00Z" },
+        { "id": "2", "name": "cron-selftest",           "scope": "system",      "cron": "*/15 * * * *",  "task_type": "cron.selftest",         "enabled": false, "requires_llm": false, "last_run": null,                   "last_status": null,        "next_run": null },
+        { "id": "3", "name": "pattern-reclassify",      "scope": "system",      "cron": "0 * * * *",     "task_type": "patterns.reclassify",   "enabled": true,  "requires_llm": true,  "last_run": "2026-06-01T02:00:00Z", "last_status": "completed", "next_run": "2026-06-01T03:00:00Z" },
+        { "id": "4", "name": "cortex-distill",          "scope": "cortex",      "cron": "0 6 * * *",     "task_type": "cortex.distill",        "enabled": true,  "requires_llm": true,  "last_run": "2026-05-31T06:00:00Z", "last_status": "completed", "next_run": "2026-06-01T06:00:00Z" },
+        { "id": "5", "name": "cortex-graph-backup",     "scope": "cortex",      "cron": "30 3 * * *",    "task_type": "cortex.backup",         "enabled": true,  "requires_llm": false, "last_run": "2026-06-01T03:30:00Z", "last_status": "failed",    "next_run": "2026-06-02T03:30:00Z" },
+        { "id": "6", "name": "mem0-prune",              "scope": "cortex",      "cron": "0 4 * * 0",     "task_type": "cortex.mem0_prune",     "enabled": false, "requires_llm": false, "last_run": "2026-05-25T04:00:00Z", "last_status": "completed", "next_run": null },
+        { "id": "7", "name": "daily-brief",             "scope": "ai-ops-user", "cron": "0 13 * * *",    "task_type": "account.daily_brief",   "enabled": true,  "requires_llm": true,  "last_run": "2026-06-01T13:00:00Z", "last_status": "running",   "next_run": "2026-06-02T13:00:00Z" },
+        { "id": "8", "name": "inbox-triage",            "scope": "ai-ops-user", "cron": "*/30 * * * *",  "task_type": "account.inbox_triage",  "enabled": true,  "requires_llm": true,  "last_run": "2026-06-01T02:30:00Z", "last_status": "completed", "next_run": "2026-06-01T03:00:00Z" },
+        { "id": "9", "name": "estimate-tracker-sync",   "scope": "ai-ops-user", "cron": "0 22 * * *",    "task_type": "account.estimate_sync", "enabled": false, "requires_llm": false, "last_run": "2026-05-30T22:00:00Z", "last_status": "completed", "next_run": null }
+      ],
+      "runs": [
+        { "id": "r1", "schedule": "shadow-heartbeat",   "scope": "system",      "status": "completed", "started": "2026-06-01T02:30:00Z", "duration_ms": 412,   "result": "shadow: up (100.76.17.21:22)" },
+        { "id": "r2", "schedule": "inbox-triage",       "scope": "ai-ops-user", "status": "completed", "started": "2026-06-01T02:30:00Z", "duration_ms": 8840,  "result": "12 messages triaged, 3 flagged" },
+        { "id": "r3", "schedule": "daily-brief",        "scope": "ai-ops-user", "status": "running",   "started": "2026-06-01T13:00:00Z", "duration_ms": null,  "result": null },
+        { "id": "r4", "schedule": "cortex-graph-backup","scope": "cortex",      "status": "failed",    "started": "2026-06-01T03:30:00Z", "duration_ms": 2010,  "result": "KuzuDB lock timeout after 2s" },
+        { "id": "r5", "schedule": "pattern-reclassify", "scope": "system",      "status": "completed", "started": "2026-06-01T02:00:00Z", "duration_ms": 15230, "result": "84 patterns rescored" },
+        { "id": "r6", "schedule": "shadow-heartbeat",   "scope": "system",      "status": "completed", "started": "2026-06-01T02:25:00Z", "duration_ms": 388,   "result": "shadow: up (100.76.17.21:22)" },
+        { "id": "r7", "schedule": "cortex-distill",     "scope": "cortex",      "status": "completed", "started": "2026-05-31T06:00:00Z", "duration_ms": 92110, "result": "1 weekly brief written" },
+        { "id": "r8", "schedule": "shadow-heartbeat",   "scope": "system",      "status": "pending",   "started": "2026-06-01T02:35:00Z", "duration_ms": null,  "result": null }
+      ]
+    };
+
+    const scopeLabels = {
+      all: "All",
+      system: "Ouro Boros",
+      cortex: "Cortex",
+      "ai-ops-user": "This account"
+    };
+
+    const state = {
+      scope: "all",
+      schedules: structuredClone(MOCK_DATA.schedules),
+      runs: structuredClone(MOCK_DATA.runs),
+      runPanelState: "live",
+      editingId: null,
+      runningNow: new Set()
+    };
+
+    const dataClock = new Date(MOCK_DATA.loop.last_tick);
+    const runsClock = new Date(Math.max(...MOCK_DATA.runs.map((run) => Date.parse(run.started)), Date.parse(MOCK_DATA.loop.last_tick)));
+
+    const els = {
+      healthStrip: document.getElementById("healthStrip"),
+      schedulesBody: document.getElementById("schedulesBody"),
+      schedulesSubtitle: document.getElementById("schedulesSubtitle"),
+      scheduleEmpty: document.getElementById("scheduleEmpty"),
+      runsList: document.getElementById("runsList"),
+      runsSubtitle: document.getElementById("runsSubtitle"),
+      runsStateSelect: document.getElementById("runsStateSelect"),
+      modal: document.getElementById("scheduleModal"),
+      form: document.getElementById("scheduleForm"),
+      drawerTitle: document.getElementById("drawerTitle"),
+      cronHelper: document.getElementById("cronHelper"),
+      toastRegion: document.getElementById("toastRegion")
+    };
+
+    function byScope(items) {
+      if (state.scope === "all") return items;
+      return items.filter((item) => item.scope === state.scope);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatUtc(value) {
+      if (!value) return "not scheduled";
+      const date = new Date(value);
+      const datePart = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" }).format(date);
+      const timePart = new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "UTC" }).format(date);
+      return `${datePart} ${timePart} UTC`;
+    }
+
+    function relativeTime(value, reference = dataClock, options = {}) {
+      if (!value) return "never";
+      const then = new Date(value).getTime();
+      const now = reference.getTime();
+      const diffMs = then - now;
+      const abs = Math.abs(diffMs);
+      const minute = 60 * 1000;
+      const hour = 60 * minute;
+      const day = 24 * hour;
+      if (options.running) return "running now";
+      if (abs < 45 * 1000) return diffMs >= 0 ? "due now" : "just now";
+      let valueText;
+      if (abs < hour) valueText = `${Math.round(abs / minute)} min`;
+      else if (abs < day) valueText = `${Math.round(abs / hour)} hr`;
+      else valueText = `${Math.round(abs / day)} day`;
+      if (diffMs > 0) return `in ${valueText}`;
+      return `${valueText} ago`;
+    }
+
+    function durationText(ms) {
+      if (ms === null || ms === undefined) return "in progress";
+      if (ms < 1000) return `${ms} ms`;
+      const seconds = ms / 1000;
+      if (seconds < 60) return `${seconds.toFixed(seconds >= 10 ? 0 : 1)} s`;
+      const minutes = Math.floor(seconds / 60);
+      const rem = Math.round(seconds % 60);
+      return `${minutes}m ${rem}s`;
+    }
+
+    function cronToHuman(cron) {
+      const parts = String(cron).trim().split(/\s+/);
+      if (parts.length !== 5) return "invalid cadence";
+      const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+      if (minute.startsWith("*/") && hour === "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
+        const n = minute.slice(2);
+        return `every ${n} minute${n === "1" ? "" : "s"}`;
+      }
+      if (minute === "0" && hour === "*" && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") return "hourly";
+      if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && dayOfMonth === "*" && month === "*" && dayOfWeek === "*") {
+        return `daily ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+      }
+      if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && dayOfMonth === "*" && month === "*" && /^\d+$/.test(dayOfWeek)) {
+        const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        return `${days[Number(dayOfWeek)] || "weekly"} ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+      }
+      return cron;
+    }
+
+    function validateCron(cron) {
+      const parts = String(cron).trim().split(/\s+/);
+      if (parts.length !== 5) return "Cron must use exactly five fields.";
+      const simple = /^(\*|\*\/\d+|\d+)$/;
+      if (!parts.every((part) => simple.test(part))) return "Use *, */n, or numbers for this prototype.";
+      const [minute, hour, dom, month, dow] = parts;
+      const numericChecks = [
+        [minute, 0, 59, "Minute"],
+        [hour, 0, 23, "Hour"],
+        [dom, 1, 31, "Day"],
+        [month, 1, 12, "Month"],
+        [dow, 0, 7, "Weekday"]
+      ];
+      for (const [part, min, max, label] of numericChecks) {
+        const value = part.startsWith("*/") ? part.slice(2) : part;
+        if (/^\d+$/.test(value)) {
+          const n = Number(value);
+          if (n < min || n > max) return `${label} field is out of range.`;
+        }
+      }
+      return "";
+    }
+
+    function scopeClass(scope) {
+      if (scope === "system") return "system";
+      if (scope === "cortex") return "cortex";
+      return "account";
+    }
+
+    function healthStatus(failures, enabledCount) {
+      if (!MOCK_DATA.loop.alive || failures > 0) return failures > 0 ? "bad" : "warn";
+      if (enabledCount === 0) return "warn";
+      return "good";
+    }
+
+    function renderHealth() {
+      const schedules = byScope(state.schedules);
+      const runs = byScope(state.runs);
+      const enabled = schedules.filter((schedule) => schedule.enabled).length;
+      const cutoff = runsClock.getTime() - (24 * 60 * 60 * 1000);
+      const runs24 = runs.filter((run) => Date.parse(run.started) >= cutoff).length;
+      const failures24 = runs.filter((run) => run.status === "failed" && Date.parse(run.started) >= cutoff).length;
+      const health = healthStatus(failures24, enabled);
+      const healthLabel = health === "good" ? "Alive" : health === "warn" ? "Watch" : "Attention";
+
+      const cards = [
+        {
+          className: `is-${health}`,
+          label: "Loop",
+          value: `<span class="status-dot ${health === "good" ? "completed" : health === "warn" ? "pending" : "failed"}"></span>${healthLabel}`,
+          sub: `Last tick ${formatUtc(MOCK_DATA.loop.last_tick)}`
+        },
+        { className: "is-good", label: "Tick interval", value: `${MOCK_DATA.loop.tick_seconds}s`, sub: "synthetic scheduler pulse" },
+        { className: enabled > 0 ? "is-good" : "is-warn", label: "Enabled", value: enabled, sub: `${schedules.length} schedules in scope` },
+        { className: runs24 > 0 ? "is-good" : "is-warn", label: "Runs 24h", value: runs24, sub: `${scopeLabels[state.scope]} activity` },
+        { className: failures24 > 0 ? "is-bad" : "is-good", label: "Failures 24h", value: failures24, sub: failures24 > 0 ? "inspect recent runs" : "no failed runs" }
+      ];
+
+      els.healthStrip.innerHTML = cards.map((card) => `
+        <article class="health-card ${card.className}">
+          <div class="metric-label">${card.label}</div>
+          <div>
+            <div class="metric-value">${card.value}</div>
+            <div class="metric-sub">${card.sub}</div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderSchedules() {
+      const schedules = byScope(state.schedules);
+      els.schedulesSubtitle.textContent = `${schedules.length} schedule${schedules.length === 1 ? "" : "s"} in ${scopeLabels[state.scope]}`;
+      els.scheduleEmpty.hidden = schedules.length > 0;
+      els.schedulesBody.innerHTML = schedules.map((schedule, index) => {
+        const status = schedule.last_status || "pending";
+        const running = schedule.last_status === "running";
+        const busy = state.runningNow.has(schedule.id);
+        return `
+          <tr data-id="${schedule.id}">
+            <td>
+              <div class="schedule-name">
+                <span class="row-index">${String(index + 1).padStart(2, "0")}</span>
+                <span>${escapeHtml(schedule.name)}</span>
+              </div>
+            </td>
+            <td>
+              <div class="cadence">
+                <span class="primary-line">${escapeHtml(cronToHuman(schedule.cron))}</span>
+                <span class="secondary-line">${escapeHtml(schedule.cron)}</span>
+              </div>
+            </td>
+            <td><div class="task-type" title="${escapeHtml(schedule.task_type)}">${escapeHtml(schedule.task_type)}</div></td>
+            <td><span class="scope-pill ${scopeClass(schedule.scope)}">${scopeLabels[schedule.scope]}</span></td>
+            <td>
+              <button class="toggle" type="button" aria-label="${schedule.enabled ? "Disable" : "Enable"} ${escapeHtml(schedule.name)}" aria-pressed="${schedule.enabled}" data-action="toggle" data-id="${schedule.id}"></button>
+            </td>
+            <td><span class="llm-badge ${schedule.requires_llm ? "yes" : "no"}">${schedule.requires_llm ? "LLM" : "No LLM"}</span></td>
+            <td class="time-cell">
+              <div class="status-line"><span class="status-dot ${status}"></span>${escapeHtml(relativeTime(schedule.last_run, dataClock, { running }))}</div>
+              <div class="status-label">${schedule.last_status ? `${schedule.last_status} - ${formatUtc(schedule.last_run)}` : "no prior run"}</div>
+            </td>
+            <td class="time-cell">
+              <div class="primary-line">${schedule.next_run ? escapeHtml(relativeTime(schedule.next_run, dataClock)) : "disabled"}</div>
+              <div class="status-label">${schedule.next_run ? formatUtc(schedule.next_run) : "no next run"}</div>
+            </td>
+            <td>
+              <div class="actions">
+                <button class="secondary-button" type="button" data-action="enable" data-id="${schedule.id}">${schedule.enabled ? "Disable" : "Enable"}</button>
+                <button class="secondary-button run-now ${busy ? "is-busy" : ""}" type="button" data-action="run" data-id="${schedule.id}" ${busy ? "disabled" : ""}>
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"></path></svg>
+                  ${busy ? "Queued" : "Run now"}
+                </button>
+                <button class="icon-button" type="button" data-action="edit" data-id="${schedule.id}" aria-label="Edit ${escapeHtml(schedule.name)}">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                </button>
+                <button class="icon-button" type="button" data-action="delete" data-id="${schedule.id}" aria-label="Delete ${escapeHtml(schedule.name)}">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderRuns() {
+      const scopedRuns = byScope(state.runs)
+        .slice()
+        .sort((a, b) => Date.parse(b.started) - Date.parse(a.started));
+
+      els.runsSubtitle.textContent = state.runPanelState === "live"
+        ? `${scopedRuns.length} run${scopedRuns.length === 1 ? "" : "s"} in ${scopeLabels[state.scope]}`
+        : `${state.runPanelState} state`;
+
+      if (state.runPanelState === "loading") {
+        els.runsList.innerHTML = `<div class="runs-list">${Array.from({ length: 4 }, () => `<div class="skeleton"></div>`).join("")}</div>`;
+        return;
+      }
+
+      if (state.runPanelState === "error") {
+        els.runsList.innerHTML = `
+          <div class="state-view">
+            <div class="state-box">
+              <div class="state-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg></div>
+              <h3 class="state-title">Runs feed unavailable</h3>
+              <p class="state-copy">Run telemetry did not return. Retry to restore the feed.</p>
+              <button class="secondary-button" type="button" data-action="retry-runs">Retry</button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (state.runPanelState === "empty" || scopedRuns.length === 0) {
+        els.runsList.innerHTML = `
+          <div class="state-view">
+            <div class="state-box">
+              <div class="state-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg></div>
+              <h3 class="state-title">No recent runs</h3>
+              <p class="state-copy">This scope has no run records in the current client-side dataset.</p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      els.runsList.innerHTML = scopedRuns.map((run) => `
+        <article class="run-item">
+          <div>
+            <div class="run-name"><span class="status-dot ${run.status}"></span>${escapeHtml(run.schedule)}</div>
+            <div class="run-meta">
+              <span class="status-chip ${run.status}"><span class="status-dot ${run.status}"></span>${run.status}</span>
+              ${escapeHtml(relativeTime(run.started, runsClock, { running: run.status === "running" }))} - ${formatUtc(run.started)}
+            </div>
+            <div class="run-result">${escapeHtml(run.result || (run.status === "pending" ? "Queued for the next scheduler tick" : "No result yet"))}</div>
+          </div>
+          <div class="duration">${durationText(run.duration_ms)}</div>
+        </article>
+      `).join("");
+    }
+
+    function renderAll() {
+      renderHealth();
+      renderSchedules();
+      renderRuns();
+    }
+
+    function toast(title, detail) {
+      const node = document.createElement("div");
+      node.className = "toast";
+      node.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(detail)}</span>`;
+      els.toastRegion.append(node);
+      window.setTimeout(() => {
+        node.style.opacity = "0";
+        node.style.transform = "translateY(8px)";
+        node.style.transition = "opacity 180ms ease, transform 180ms ease";
+        window.setTimeout(() => node.remove(), 220);
+      }, 2800);
+    }
+
+    function setScope(scope) {
+      state.scope = scope;
+      document.querySelectorAll(".scope-button").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.scope === scope));
+      });
+      const previous = state.runPanelState;
+      state.runPanelState = "loading";
+      els.runsStateSelect.value = "loading";
+      renderAll();
+      window.setTimeout(() => {
+        state.runPanelState = previous === "loading" ? "live" : previous;
+        els.runsStateSelect.value = state.runPanelState;
+        renderAll();
+      }, 260);
+    }
+
+    function updateSchedule(id, patch) {
+      const schedule = state.schedules.find((item) => item.id === id);
+      if (!schedule) return null;
+      Object.assign(schedule, patch);
+      renderAll();
+      return schedule;
+    }
+
+    function toggleSchedule(id) {
+      const schedule = state.schedules.find((item) => item.id === id);
+      if (!schedule) return;
+      const enabled = !schedule.enabled;
+      updateSchedule(id, {
+        enabled,
+        next_run: enabled ? estimateNextRun(schedule.cron) : null
+      });
+      toast(enabled ? "Schedule enabled" : "Schedule disabled", schedule.name);
+    }
+
+    function estimateNextRun(cron) {
+      const parts = String(cron).trim().split(/\s+/);
+      if (parts.length !== 5) return null;
+      const next = new Date(dataClock.getTime());
+      const [minute, hour, dom, month, dow] = parts;
+      if (minute.startsWith("*/")) {
+        next.setUTCMinutes(next.getUTCMinutes() + Number(minute.slice(2)), 0, 0);
+        return next.toISOString();
+      }
+      if (minute === "0" && hour === "*") {
+        next.setUTCHours(next.getUTCHours() + 1, 0, 0, 0);
+        return next.toISOString();
+      }
+      if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && dom === "*" && month === "*") {
+        next.setUTCHours(Number(hour), Number(minute), 0, 0);
+        if (dow !== "*" || next <= dataClock) next.setUTCDate(next.getUTCDate() + 1);
+        if (dow !== "*") {
+          const target = Number(dow) % 7;
+          while (next.getUTCDay() !== target || next <= dataClock) next.setUTCDate(next.getUTCDate() + 1);
+        }
+        return next.toISOString();
+      }
+      return null;
+    }
+
+    function runNow(id) {
+      const schedule = state.schedules.find((item) => item.id === id);
+      if (!schedule) return;
+      state.runningNow.add(id);
+      const runId = `manual-${Date.now()}`;
+      const started = dataClock.toISOString();
+      state.runs.unshift({
+        id: runId,
+        schedule: schedule.name,
+        scope: schedule.scope,
+        status: "running",
+        started,
+        duration_ms: null,
+        result: null
+      });
+      Object.assign(schedule, {
+        last_run: started,
+        last_status: "running"
+      });
+      toast("Run queued", `${schedule.name} started manually`);
+      renderAll();
+      window.setTimeout(() => {
+        const run = state.runs.find((item) => item.id === runId);
+        if (run) {
+          run.status = "completed";
+          run.duration_ms = 1360;
+          run.result = "Manual run completed";
+        }
+        const current = state.schedules.find((item) => item.id === id);
+        if (current) current.last_status = "completed";
+        state.runningNow.delete(id);
+        toast("Run completed", schedule.name);
+        renderAll();
+      }, 1400);
+    }
+
+    function deleteSchedule(id) {
+      const schedule = state.schedules.find((item) => item.id === id);
+      if (!schedule) return;
+      state.schedules = state.schedules.filter((item) => item.id !== id);
+      state.runs = state.runs.filter((run) => run.schedule !== schedule.name);
+      toast("Schedule deleted", `${schedule.name} removed from local state`);
+      renderAll();
+    }
+
+    function openModal(schedule = null) {
+      state.editingId = schedule ? schedule.id : null;
+      els.drawerTitle.textContent = schedule ? "Edit schedule" : "New schedule";
+      els.form.reset();
+      clearErrors();
+      document.getElementById("schedulePayload").value = "{\n  \"source\": \"operator\",\n  \"priority\": \"normal\"\n}";
+      document.getElementById("scheduleEnabled").checked = true;
+      if (schedule) {
+        document.getElementById("scheduleName").value = schedule.name;
+        document.getElementById("scheduleCron").value = schedule.cron;
+        document.getElementById("scheduleScope").value = schedule.scope;
+        document.getElementById("scheduleTaskType").value = schedule.task_type;
+        document.getElementById("scheduleEnabled").checked = schedule.enabled;
+      }
+      updateCronHelper();
+      els.modal.classList.add("is-open");
+      window.setTimeout(() => document.getElementById("scheduleName").focus(), 0);
+    }
+
+    function closeModal() {
+      els.modal.classList.remove("is-open");
+      state.editingId = null;
+    }
+
+    function setFieldError(field, message) {
+      const row = els.form.querySelector(`[data-field="${field}"]`);
+      const error = document.getElementById(`${field}Error`);
+      if (row) row.classList.toggle("field-error", Boolean(message));
+      if (error) error.textContent = message || "";
+    }
+
+    function clearErrors() {
+      ["name", "cron", "scope", "task_type", "payload"].forEach((field) => setFieldError(field, ""));
+    }
+
+    function validateForm() {
+      clearErrors();
+      const data = new FormData(els.form);
+      const values = Object.fromEntries(data.entries());
+      const errors = {};
+      if (!String(values.name || "").trim()) errors.name = "Name is required.";
+      else if (String(values.name).trim().length < 3) errors.name = "Name needs at least 3 characters.";
+      if (!String(values.task_type || "").trim()) errors.task_type = "Task type is required.";
+      else if (!/^[a-z0-9_.-]+$/i.test(String(values.task_type).trim())) errors.task_type = "Use letters, numbers, dots, dashes, or underscores.";
+      const cronError = validateCron(values.cron);
+      if (cronError) errors.cron = cronError;
+      try {
+        JSON.parse(document.getElementById("schedulePayload").value || "{}");
+      } catch (error) {
+        errors.payload = "Payload must be valid JSON.";
+      }
+      Object.entries(errors).forEach(([field, message]) => setFieldError(field, message));
+      const firstError = Object.keys(errors)[0];
+      if (firstError) {
+        const input = els.form.querySelector(`[name="${firstError}"], #schedule${firstError}`);
+        const rowInput = els.form.querySelector(`[data-field="${firstError}"] input, [data-field="${firstError}"] textarea, [data-field="${firstError}"] select`);
+        (input || rowInput)?.focus();
+        return null;
+      }
+      return {
+        name: String(values.name).trim(),
+        cron: String(values.cron).trim(),
+        scope: values.scope,
+        task_type: String(values.task_type).trim(),
+        enabled: document.getElementById("scheduleEnabled").checked
+      };
+    }
+
+    function saveSchedule(event) {
+      event.preventDefault();
+      const values = validateForm();
+      if (!values) return;
+      if (state.editingId) {
+        const schedule = state.schedules.find((item) => item.id === state.editingId);
+        if (schedule) {
+          Object.assign(schedule, values, {
+            next_run: values.enabled ? estimateNextRun(values.cron) : null
+          });
+          toast("Schedule updated", values.name);
+        }
+      } else {
+        const id = `local-${Date.now()}`;
+        state.schedules.unshift({
+          id,
+          name: values.name,
+          scope: values.scope,
+          cron: values.cron,
+          task_type: values.task_type,
+          enabled: values.enabled,
+          requires_llm: values.task_type.includes("brief") || values.task_type.includes("triage") || values.task_type.includes("distill"),
+          last_run: null,
+          last_status: null,
+          next_run: values.enabled ? estimateNextRun(values.cron) : null
+        });
+        toast("Schedule created", `${values.name} added to local state`);
+      }
+      closeModal();
+      renderAll();
+    }
+
+    function updateCronHelper() {
+      const cron = document.getElementById("scheduleCron").value.trim();
+      if (!cron) {
+        els.cronHelper.textContent = "Use five fields. Supported examples translate instantly.";
+        return;
+      }
+      const error = validateCron(cron);
+      els.cronHelper.textContent = error ? error : `Reads as: ${cronToHuman(cron)}`;
+    }
+
+    document.querySelectorAll(".scope-button").forEach((button) => {
+      button.addEventListener("click", () => setScope(button.dataset.scope));
+    });
+
+    document.getElementById("newScheduleButton").addEventListener("click", () => openModal());
+    document.getElementById("closeModalButton").addEventListener("click", closeModal);
+    document.getElementById("cancelModalButton").addEventListener("click", closeModal);
+    document.getElementById("refreshButton").addEventListener("click", () => {
+      state.runPanelState = "loading";
+      els.runsStateSelect.value = "loading";
+      renderRuns();
+      window.setTimeout(() => {
+        state.runPanelState = "live";
+        els.runsStateSelect.value = "live";
+        renderRuns();
+        toast("Refreshed", "Client-side data re-rendered");
+      }, 480);
+    });
+
+    els.schedulesBody.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const id = button.dataset.id;
+      const action = button.dataset.action;
+      if (action === "toggle" || action === "enable") toggleSchedule(id);
+      if (action === "run") runNow(id);
+      if (action === "edit") openModal(state.schedules.find((item) => item.id === id));
+      if (action === "delete") deleteSchedule(id);
+    });
+
+    els.runsList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action='retry-runs']");
+      if (!button) return;
+      state.runPanelState = "loading";
+      els.runsStateSelect.value = "loading";
+      renderRuns();
+      window.setTimeout(() => {
+        state.runPanelState = "live";
+        els.runsStateSelect.value = "live";
+        renderRuns();
+      }, 420);
+    });
+
+    els.runsStateSelect.addEventListener("change", (event) => {
+      state.runPanelState = event.target.value;
+      renderRuns();
+    });
+
+    els.form.addEventListener("submit", saveSchedule);
+    document.getElementById("scheduleCron").addEventListener("input", updateCronHelper);
+    els.modal.addEventListener("click", (event) => {
+      if (event.target === els.modal) closeModal();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && els.modal.classList.contains("is-open")) closeModal();
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>

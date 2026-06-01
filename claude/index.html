@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scheduler · OUROBOROS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        },
+        colors: {
+          ink:   { 950:'#080a0f', 900:'#0b0e15', 850:'#10141d', 800:'#141925', 700:'#1c2331', 600:'#2a3244', 500:'#3a4358' },
+          mute:  '#8794ab',
+          faint: '#5b6680',
+          brand: { DEFAULT:'#6366f1', soft:'#818cf8', glow:'#4f46e5' },
+        },
+        boxShadow: {
+          card: '0 1px 0 0 rgba(255,255,255,0.03) inset, 0 8px 24px -12px rgba(0,0,0,0.6)',
+          pop:  '0 24px 60px -20px rgba(0,0,0,0.85)',
+        },
+      },
+    },
+  };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html { scroll-behavior: smooth; }
+  body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #232c3d; border-radius: 8px; border: 2px solid #0b0e15; }
+  ::-webkit-scrollbar-thumb:hover { background: #2f3a4f; }
+
+  .app-bg {
+    background:
+      radial-gradient(1100px 540px at 12% -8%, rgba(99,102,241,0.12), transparent 60%),
+      radial-gradient(900px 480px at 105% 0%, rgba(56,189,248,0.07), transparent 55%),
+      #080a0f;
+  }
+  .grid-overlay {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 rgba(56,189,248,0.55); }
+    70% { box-shadow: 0 0 0 6px rgba(56,189,248,0); }
+    100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+  }
+  .dot-running { animation: pulse-ring 1.6s ease-out infinite; }
+
+  @keyframes heart {
+    0%,100% { opacity:.55; transform: scale(1); }
+    50%     { opacity:1;   transform: scale(1.35); }
+  }
+  .heart { animation: heart 2.4s ease-in-out infinite; }
+
+  @keyframes rowIn { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform:none; } }
+  .row-in { animation: rowIn .28s ease both; }
+
+  @keyframes toastIn { from { opacity:0; transform: translateY(10px) scale(.98); } to { opacity:1; transform:none; } }
+  .toast-in { animation: toastIn .26s cubic-bezier(.2,.9,.3,1) both; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin .8s linear infinite; }
+
+  .drawer { transition: transform .34s cubic-bezier(.2,.9,.25,1); }
+  .scrim  { transition: opacity .3s ease; }
+
+  .seg-active { background:#1c2331; box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 1px 2px rgba(0,0,0,.4); color:#fff; }
+
+  .tg { width:38px; height:21px; border-radius:999px; position:relative; transition: background .22s; flex:none; }
+  .tg::after { content:''; position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:999px; background:#fff; transition: transform .22s cubic-bezier(.3,1.4,.5,1); box-shadow:0 1px 3px rgba(0,0,0,.5); }
+  .tg[aria-checked="true"] { background:#22c55e; }
+  .tg[aria-checked="true"]::after { transform: translateX(17px); }
+  .tg[aria-checked="false"] { background:#39435a; }
+  .tg:focus-visible { outline:2px solid #818cf8; outline-offset:2px; }
+
+  .focus-ring:focus-visible { outline:2px solid #818cf8; outline-offset:2px; border-radius:8px; }
+
+  tr.sched-row:hover .row-actions { opacity:1; }
+  .row-actions { opacity:0; transition: opacity .15s; }
+  @media (max-width:1024px){ .row-actions{ opacity:1; } }
+
+  [data-tip]{ position:relative; }
+  [data-tip]:hover::after{
+    content:attr(data-tip); position:absolute; bottom:calc(100% + 7px); left:50%; transform:translateX(-50%);
+    background:#0b0e15; color:#cdd5e3; font-size:11px; line-height:1; white-space:nowrap; padding:6px 8px; border-radius:6px;
+    border:1px solid #232c3d; box-shadow:0 8px 20px -8px #000; z-index:50; pointer-events:none;
+  }
+</style>
+</head>
+
+<body class="app-bg text-slate-200 font-sans min-h-screen antialiased">
+<div class="grid-overlay min-h-screen">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-30 border-b border-ink-700/70 backdrop-blur-xl bg-ink-950/70">
+    <div class="max-w-[1400px] mx-auto px-5 sm:px-8 h-16 flex items-center gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="relative grid place-items-center w-9 h-9 rounded-xl bg-gradient-to-br from-brand-glow to-brand-soft shadow-[0_6px_18px_-6px_rgba(99,102,241,.8)]">
+          <svg viewBox="0 0 24 24" class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 4 21 9 16 9"/>
+          </svg>
+        </div>
+        <div class="min-w-0 leading-tight">
+          <div class="flex items-center gap-2">
+            <h1 class="text-[15px] font-semibold text-white tracking-tight">Scheduler</h1>
+            <span class="text-[10px] uppercase tracking-[0.14em] font-semibold text-faint px-1.5 py-0.5 rounded bg-ink-800 border border-ink-700">Claude-free cron</span>
+          </div>
+          <p class="text-[11px] text-faint -mt-0.5 truncate">OUROBOROS control plane</p>
+        </div>
+      </div>
+
+      <nav id="scopeSelector" aria-label="Scope" class="hidden md:flex items-center ml-2 p-1 rounded-xl bg-ink-900/80 border border-ink-700"></nav>
+
+      <div class="ml-auto flex items-center gap-2.5">
+        <select id="scopeMobile" aria-label="Scope" class="md:hidden bg-ink-800 border border-ink-700 rounded-lg text-sm px-2.5 py-2 focus-ring"></select>
+
+        <div class="hidden sm:flex items-center gap-1.5 text-[12px] text-mute px-2.5 py-1.5 rounded-lg bg-ink-900/70 border border-ink-700" data-tip="Operator account">
+          <span class="w-6 h-6 rounded-full bg-gradient-to-br from-emerald-400 to-sky-500 grid place-items-center text-[10px] font-bold text-ink-950">AO</span>
+          <span class="font-medium text-slate-300">ai-ops-user</span>
+        </div>
+
+        <button id="newScheduleBtn" class="group inline-flex items-center gap-2 rounded-xl bg-brand hover:bg-brand-glow text-white text-sm font-semibold px-3.5 py-2 shadow-[0_8px_22px_-8px_rgba(99,102,241,.9)] transition focus-ring active:scale-[.98]">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span class="hidden sm:inline">New schedule</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-[1400px] mx-auto px-5 sm:px-8 py-7 space-y-7">
+
+    <!-- LOOP HEALTH STRIP -->
+    <section aria-label="Scheduler loop health">
+      <div id="healthCard" class="relative overflow-hidden rounded-2xl border border-ink-700 bg-ink-850/70 shadow-card">
+        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent"></div>
+        <div class="p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center gap-5">
+          <div class="flex items-center gap-3.5 xl:pr-6 xl:border-r xl:border-ink-700">
+            <span class="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+              <span id="heartDot" class="heart w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,.7)]"></span>
+            </span>
+            <div class="leading-tight">
+              <div class="flex items-center gap-2">
+                <span id="loopState" class="text-[15px] font-semibold text-white">Loop alive</span>
+              </div>
+              <div class="text-[12px] text-mute">tick every <span class="font-mono text-slate-300" id="tickInterval">60s</span> · last tick <span id="lastTick" class="text-slate-300 font-medium">—</span></div>
+            </div>
+          </div>
+          <div id="healthMetrics" class="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLE + RUNS -->
+    <div class="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_396px] gap-7 items-start">
+
+      <section aria-label="Schedules" class="rounded-2xl border border-ink-700 bg-ink-850/60 shadow-card overflow-hidden">
+        <div class="flex items-center gap-3 px-5 py-4 border-b border-ink-700">
+          <h2 class="text-[15px] font-semibold text-white">Schedules</h2>
+          <span id="schedCount" class="text-[11px] font-semibold text-mute bg-ink-800 border border-ink-700 rounded-full px-2 py-0.5">0</span>
+          <div class="ml-auto relative">
+            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="searchInput" type="search" placeholder="Filter…" aria-label="Filter schedules"
+              class="w-36 sm:w-52 bg-ink-900 border border-ink-700 rounded-lg pl-8 pr-2.5 py-1.5 text-[13px] placeholder:text-faint focus-ring transition focus:w-60" />
+          </div>
+        </div>
+
+        <div id="schedTableWrap" class="overflow-x-auto">
+          <table class="w-full text-left border-collapse min-w-[820px]">
+            <thead>
+              <tr class="text-[11px] uppercase tracking-wider text-faint">
+                <th class="font-semibold py-2.5 pl-5 pr-3">Schedule</th>
+                <th class="font-semibold py-2.5 px-3">Cadence</th>
+                <th class="font-semibold py-2.5 px-3">Type</th>
+                <th class="font-semibold py-2.5 px-3 text-center">On</th>
+                <th class="font-semibold py-2.5 px-3">Last run</th>
+                <th class="font-semibold py-2.5 px-3">Next run</th>
+                <th class="font-semibold py-2.5 px-3 pr-5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="schedBody" class="divide-y divide-ink-700/70"></tbody>
+          </table>
+        </div>
+        <div id="schedEmpty" class="hidden flex-col items-center justify-center text-center py-16 px-6">
+          <div class="w-12 h-12 rounded-2xl bg-ink-800 border border-ink-700 grid place-items-center mb-3">
+            <svg class="w-6 h-6 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </div>
+          <p class="text-sm font-medium text-slate-300">No schedules in this scope</p>
+          <p class="text-[12px] text-faint mt-1 max-w-xs">Nothing matches the current filter. Try “All”, clear the search, or create a new schedule.</p>
+          <button onclick="openDrawer()" class="mt-4 text-[13px] font-semibold text-brand-soft hover:text-white transition focus-ring">+ New schedule</button>
+        </div>
+      </section>
+
+      <section aria-label="Recent runs" class="rounded-2xl border border-ink-700 bg-ink-850/60 shadow-card overflow-hidden 2xl:sticky 2xl:top-[88px]">
+        <div class="flex items-center gap-2.5 px-5 py-4 border-b border-ink-700">
+          <h2 class="text-[15px] font-semibold text-white">Recent runs</h2>
+          <span id="runsCount" class="text-[11px] font-semibold text-mute bg-ink-800 border border-ink-700 rounded-full px-2 py-0.5">0</span>
+          <button id="refreshRuns" class="ml-auto inline-flex items-center gap-1.5 text-[12px] text-mute hover:text-white px-2 py-1 rounded-lg hover:bg-ink-800 transition focus-ring" data-tip="Simulate refresh">
+            <svg id="refreshIcon" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 4 21 9 16 9"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div id="runsWrap" class="max-h-[640px] overflow-y-auto">
+          <ul id="runsList" class="divide-y divide-ink-700/60"></ul>
+          <div id="runsLoading" class="hidden p-4 space-y-3">
+            <div class="h-14 rounded-xl bg-ink-800/60 animate-pulse"></div>
+            <div class="h-14 rounded-xl bg-ink-800/60 animate-pulse"></div>
+            <div class="h-14 rounded-xl bg-ink-800/60 animate-pulse"></div>
+          </div>
+          <div id="runsEmpty" class="hidden flex-col items-center justify-center text-center py-14 px-6">
+            <div class="w-11 h-11 rounded-2xl bg-ink-800 border border-ink-700 grid place-items-center mb-3">
+              <svg class="w-5 h-5 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </div>
+            <p class="text-sm font-medium text-slate-300">No runs yet</p>
+            <p class="text-[12px] text-faint mt-1">No task runs recorded for this scope.</p>
+          </div>
+          <div id="runsError" class="hidden flex-col items-center justify-center text-center py-14 px-6">
+            <div class="w-11 h-11 rounded-2xl bg-rose-500/10 border border-rose-500/30 grid place-items-center mb-3">
+              <svg class="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+            </div>
+            <p class="text-sm font-medium text-slate-300">Couldn’t load runs</p>
+            <p class="text-[12px] text-faint mt-1 mb-3">The runs feed returned an error.</p>
+            <button id="retryRuns" class="text-[13px] font-semibold text-brand-soft hover:text-white transition focus-ring">Retry</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="pt-2 pb-8 text-center text-[11px] text-faint">
+      Design prototype · mock data · OUROBOROS Scheduler — built in the Claude lane
+    </footer>
+  </main>
+</div>
+
+<!-- NEW-SCHEDULE DRAWER -->
+<div id="scrim" class="scrim fixed inset-0 z-40 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none" onclick="closeDrawer()"></div>
+<aside id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle"
+  class="drawer fixed top-0 right-0 z-50 h-full w-full max-w-[480px] translate-x-full bg-ink-900 border-l border-ink-700 shadow-pop flex flex-col">
+  <div class="flex items-center gap-3 px-6 py-5 border-b border-ink-700">
+    <div class="w-9 h-9 rounded-xl bg-brand/15 border border-brand/30 grid place-items-center">
+      <svg class="w-4 h-4 text-brand-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </div>
+    <div>
+      <h2 id="drawerTitle" class="text-[15px] font-semibold text-white">New schedule</h2>
+      <p class="text-[12px] text-faint -mt-0.5">Create a recurring scheduler job</p>
+    </div>
+    <button onclick="closeDrawer()" aria-label="Close" class="ml-auto w-8 h-8 grid place-items-center rounded-lg text-mute hover:text-white hover:bg-ink-800 transition focus-ring">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <form id="scheduleForm" class="flex-1 overflow-y-auto px-6 py-5 space-y-5" novalidate>
+    <div>
+      <label for="f_name" class="block text-[12px] font-semibold text-slate-300 mb-1.5">Name <span class="text-rose-400">*</span></label>
+      <input id="f_name" name="name" type="text" autocomplete="off" placeholder="e.g. cortex-distill"
+        class="w-full bg-ink-850 border border-ink-700 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-faint focus-ring transition" />
+      <p class="err text-[11.5px] text-rose-400 mt-1 hidden"></p>
+    </div>
+
+    <div>
+      <label for="f_cron" class="block text-[12px] font-semibold text-slate-300 mb-1.5">Cron expression <span class="text-rose-400">*</span></label>
+      <input id="f_cron" name="cron" type="text" autocomplete="off" spellcheck="false" placeholder="*/5 * * * *"
+        class="w-full font-mono bg-ink-850 border border-ink-700 rounded-xl px-3.5 py-2.5 text-sm placeholder:text-faint focus-ring transition" />
+      <div class="mt-2 flex items-start gap-2 rounded-xl bg-ink-850/70 border border-ink-700 px-3 py-2">
+        <svg class="w-4 h-4 mt-0.5 text-brand-soft flex-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <p class="text-[12.5px] leading-snug"><span class="text-faint">Runs:</span> <span id="cronPreview" class="font-medium text-slate-200">—</span></p>
+      </div>
+      <p class="err text-[11.5px] text-rose-400 mt-1 hidden"></p>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        <span class="text-[11px] text-faint mr-0.5 self-center">Presets:</span>
+        <button type="button" class="cron-preset text-[11px] font-mono text-slate-300 bg-ink-800 hover:bg-ink-700 border border-ink-700 rounded-md px-1.5 py-0.5 transition focus-ring" data-cron="*/5 * * * *">*/5 * * * *</button>
+        <button type="button" class="cron-preset text-[11px] font-mono text-slate-300 bg-ink-800 hover:bg-ink-700 border border-ink-700 rounded-md px-1.5 py-0.5 transition focus-ring" data-cron="0 * * * *">0 * * * *</button>
+        <button type="button" class="cron-preset text-[11px] font-mono text-slate-300 bg-ink-800 hover:bg-ink-700 border border-ink-700 rounded-md px-1.5 py-0.5 transition focus-ring" data-cron="0 9 * * *">0 9 * * *</button>
+        <button type="button" class="cron-preset text-[11px] font-mono text-slate-300 bg-ink-800 hover:bg-ink-700 border border-ink-700 rounded-md px-1.5 py-0.5 transition focus-ring" data-cron="0 4 * * 0">0 4 * * 0</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label for="f_type" class="block text-[12px] font-semibold text-slate-300 mb-1.5">Task type <span class="text-rose-400">*</span></label>
+        <input id="f_type" name="task_type" type="text" autocomplete="off" placeholder="account.daily_brief"
+          class="w-full font-mono bg-ink-850 border border-ink-700 rounded-xl px-3.5 py-2.5 text-[13px] placeholder:text-faint focus-ring transition" />
+        <p class="err text-[11.5px] text-rose-400 mt-1 hidden"></p>
+      </div>
+      <div>
+        <label for="f_scope" class="block text-[12px] font-semibold text-slate-300 mb-1.5">Scope</label>
+        <select id="f_scope" name="scope" class="w-full bg-ink-850 border border-ink-700 rounded-xl px-3 py-2.5 text-sm focus-ring transition">
+          <option value="system">Ouro Boros (system)</option>
+          <option value="cortex">Cortex (cortex)</option>
+          <option value="ai-ops-user" selected>This account (ai-ops-user)</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label for="f_payload" class="block text-[12px] font-semibold text-slate-300 mb-1.5">Payload <span class="text-faint font-normal">(JSON)</span></label>
+      <textarea id="f_payload" name="payload" rows="4" spellcheck="false" placeholder='{ "dry_run": false }'
+        class="w-full font-mono bg-ink-850 border border-ink-700 rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed placeholder:text-faint focus-ring transition resize-y">{}</textarea>
+      <p class="err text-[11.5px] text-rose-400 mt-1 hidden"></p>
+    </div>
+
+    <div class="grid grid-cols-1 gap-3">
+      <label class="flex items-center justify-between gap-3 rounded-xl bg-ink-850/70 border border-ink-700 px-3.5 py-3 cursor-pointer">
+        <span class="flex items-center gap-2.5">
+          <span class="w-7 h-7 rounded-lg bg-violet-500/12 border border-violet-500/30 grid place-items-center">
+            <svg class="w-3.5 h-3.5 text-violet-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg>
+          </span>
+          <span><span class="block text-[13px] font-medium text-slate-200">Requires LLM</span><span class="block text-[11.5px] text-faint">Job calls a model</span></span>
+        </span>
+        <button id="f_llm" type="button" role="switch" aria-checked="false" aria-label="Requires LLM" class="tg"></button>
+      </label>
+
+      <label class="flex items-center justify-between gap-3 rounded-xl bg-ink-850/70 border border-ink-700 px-3.5 py-3 cursor-pointer">
+        <span class="flex items-center gap-2.5">
+          <span class="w-7 h-7 rounded-lg bg-emerald-500/12 border border-emerald-500/30 grid place-items-center">
+            <svg class="w-3.5 h-3.5 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
+          </span>
+          <span><span class="block text-[13px] font-medium text-slate-200">Enabled</span><span class="block text-[11.5px] text-faint">Start running on save</span></span>
+        </span>
+        <button id="f_enabled" type="button" role="switch" aria-checked="true" aria-label="Enabled" class="tg"></button>
+      </label>
+    </div>
+  </form>
+
+  <div class="flex items-center gap-3 px-6 py-4 border-t border-ink-700 bg-ink-900">
+    <p class="text-[11.5px] text-faint mr-auto">Prototype — not persisted</p>
+    <button type="button" onclick="closeDrawer()" class="px-3.5 py-2 rounded-xl text-sm font-medium text-mute hover:text-white hover:bg-ink-800 transition focus-ring">Cancel</button>
+    <button type="submit" form="scheduleForm" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand hover:bg-brand-glow text-white text-sm font-semibold transition focus-ring active:scale-[.98]">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      Create schedule
+    </button>
+  </div>
+</aside>
+
+<div id="toasts" aria-live="polite" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-2.5 items-end"></div>
+
+<!-- CONFIRM DELETE -->
+<div id="confirmScrim" class="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
+  <div class="w-full max-w-sm rounded-2xl border border-ink-700 bg-ink-900 shadow-pop p-5 toast-in">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-rose-500/12 border border-rose-500/30 grid place-items-center flex-none">
+        <svg class="w-5 h-5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+      </div>
+      <div>
+        <h3 class="text-[15px] font-semibold text-white">Delete schedule?</h3>
+        <p class="text-[13px] text-mute mt-1">Remove <span id="delName" class="font-semibold text-slate-200"></span>? This can’t be undone in this prototype.</p>
+      </div>
+    </div>
+    <div class="flex gap-2.5 mt-5">
+      <button id="delCancel" class="flex-1 px-3 py-2 rounded-xl text-sm font-medium text-mute hover:text-white bg-ink-800 hover:bg-ink-700 transition focus-ring">Cancel</button>
+      <button id="delConfirm" class="flex-1 px-3 py-2 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 transition focus-ring">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* MOCK DATA (inlined verbatim from spec section 5) */
+const DATA = {
+  loop: { alive: true, tick_seconds: 60, last_tick: "2026-06-01T02:34:10Z" },
+  schedules: [
+    { id:"1", name:"shadow-heartbeat",     scope:"system",      cron:"*/5 * * * *",  task_type:"shadow.heartbeat",      enabled:true,  requires_llm:false, last_run:"2026-06-01T02:30:00Z", last_status:"completed", next_run:"2026-06-01T02:35:00Z" },
+    { id:"2", name:"cron-selftest",        scope:"system",      cron:"*/15 * * * *", task_type:"cron.selftest",         enabled:false, requires_llm:false, last_run:null,                   last_status:null,        next_run:null },
+    { id:"3", name:"pattern-reclassify",   scope:"system",      cron:"0 * * * *",    task_type:"patterns.reclassify",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T02:00:00Z", last_status:"completed", next_run:"2026-06-01T03:00:00Z" },
+    { id:"4", name:"cortex-distill",       scope:"cortex",      cron:"0 6 * * *",    task_type:"cortex.distill",        enabled:true,  requires_llm:true,  last_run:"2026-05-31T06:00:00Z", last_status:"completed", next_run:"2026-06-01T06:00:00Z" },
+    { id:"5", name:"cortex-graph-backup",  scope:"cortex",      cron:"30 3 * * *",   task_type:"cortex.backup",         enabled:true,  requires_llm:false, last_run:"2026-06-01T03:30:00Z", last_status:"failed",    next_run:"2026-06-02T03:30:00Z" },
+    { id:"6", name:"mem0-prune",           scope:"cortex",      cron:"0 4 * * 0",    task_type:"cortex.mem0_prune",     enabled:false, requires_llm:false, last_run:"2026-05-25T04:00:00Z", last_status:"completed", next_run:null },
+    { id:"7", name:"daily-brief",          scope:"ai-ops-user", cron:"0 13 * * *",   task_type:"account.daily_brief",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T13:00:00Z", last_status:"running",   next_run:"2026-06-02T13:00:00Z" },
+    { id:"8", name:"inbox-triage",         scope:"ai-ops-user", cron:"*/30 * * * *", task_type:"account.inbox_triage",  enabled:true,  requires_llm:true,  last_run:"2026-06-01T02:30:00Z", last_status:"completed", next_run:"2026-06-01T03:00:00Z" },
+    { id:"9", name:"estimate-tracker-sync",scope:"ai-ops-user", cron:"0 22 * * *",   task_type:"account.estimate_sync", enabled:false, requires_llm:false, last_run:"2026-05-30T22:00:00Z", last_status:"completed", next_run:null }
+  ],
+  runs: [
+    { id:"r1", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T02:30:00Z", duration_ms:412,   result:"shadow: up (100.76.17.21:22)" },
+    { id:"r2", schedule:"inbox-triage",        scope:"ai-ops-user", status:"completed", started:"2026-06-01T02:30:00Z", duration_ms:8840,  result:"12 messages triaged, 3 flagged" },
+    { id:"r3", schedule:"daily-brief",         scope:"ai-ops-user", status:"running",   started:"2026-06-01T13:00:00Z", duration_ms:null,  result:null },
+    { id:"r4", schedule:"cortex-graph-backup", scope:"cortex",      status:"failed",    started:"2026-06-01T03:30:00Z", duration_ms:2010,  result:"KuzuDB lock timeout after 2s" },
+    { id:"r5", schedule:"pattern-reclassify",  scope:"system",      status:"completed", started:"2026-06-01T02:00:00Z", duration_ms:15230, result:"84 patterns rescored" },
+    { id:"r6", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T02:25:00Z", duration_ms:388,   result:"shadow: up (100.76.17.21:22)" },
+    { id:"r7", schedule:"cortex-distill",      scope:"cortex",      status:"completed", started:"2026-05-31T06:00:00Z", duration_ms:92110, result:"1 weekly brief written" },
+    { id:"r8", schedule:"shadow-heartbeat",    scope:"system",      status:"pending",   started:"2026-06-01T02:35:00Z", duration_ms:null,  result:null }
+  ]
+};
+
+const NOW = new Date("2026-06-01T02:34:10Z").getTime();
+
+const SCOPES = [
+  { key:"all",         label:"All",          tenant:null,          accent:"slate" },
+  { key:"system",      label:"Ouro Boros",   tenant:"system",      accent:"indigo" },
+  { key:"cortex",      label:"Cortex",       tenant:"cortex",      accent:"sky" },
+  { key:"ai-ops-user", label:"This account", tenant:"ai-ops-user", accent:"emerald" },
+];
+let currentScope = "all";
+
+let schedules = DATA.schedules.map(s => ({ ...s }));
+let runs = DATA.runs.map(r => ({ ...r }));
+
+/* CRON -> HUMAN */
+const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const DOW_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const MONTHS = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function pad(n){ return String(n).padStart(2,"0"); }
+
+function cronToHuman(expr){
+  if(!expr || typeof expr !== "string") return { short:"—", long:"Invalid expression" };
+  const parts = expr.trim().split(/\s+/);
+  if(parts.length !== 5) return { short:expr, long:"Custom schedule" };
+  const [min, hr, dom, mon, dow] = parts;
+
+  const isEvery = v => v === "*";
+  const stepOf = v => { const m = /^\*\/(\d+)$/.exec(v); return m ? parseInt(m[1],10) : null; };
+  const plural = (n,w) => `${n} ${w}${n===1?"":"s"}`;
+
+  const timeAt = (h,m) => {
+    const hh = ((h % 12) || 12);
+    const ap = h < 12 ? "am" : "pm";
+    return m === 0 ? `${hh}:00${ap}` : `${hh}:${pad(m)}${ap}`;
+  };
+
+  const minStep = stepOf(min);
+  const hrStep  = stepOf(hr);
+
+  if(minStep && isEvery(hr) && isEvery(dom) && isEvery(mon) && isEvery(dow)){
+    return { short: minStep===1 ? "every minute" : `every ${minStep} min`,
+             long:  minStep===1 ? "Every minute" : `Every ${plural(minStep,"minute")}` };
+  }
+  if(min !== "*" && !minStep && isEvery(hr) && isEvery(dom) && isEvery(mon) && isEvery(dow)){
+    const m = parseInt(min,10);
+    return { short: m===0 ? "hourly" : `hourly :${pad(m)}`,
+             long:  m===0 ? "Every hour, on the hour" : `Every hour at :${pad(m)} past` };
+  }
+  if((isEvery(min) || min==="0") && hrStep && isEvery(dom) && isEvery(mon) && isEvery(dow)){
+    return { short:`every ${hrStep}h`, long:`Every ${plural(hrStep,"hour")}` };
+  }
+
+  const m = parseInt(min,10);
+  const h = parseInt(hr,10);
+  const haveTime = !isNaN(m) && !isNaN(h);
+
+  if(haveTime && isEvery(dom) && isEvery(mon) && dow !== "*" && /^\d$/.test(dow)){
+    const d = parseInt(dow,10) % 7;
+    return { short:`${DOW_SHORT[d]} ${timeAt(h,m)}`, long:`Every ${DOW[d]} at ${timeAt(h,m)}` };
+  }
+  if(haveTime && dom !== "*" && /^\d+$/.test(dom) && isEvery(mon) && isEvery(dow)){
+    const day = parseInt(dom,10);
+    const suff = (day%10===1&&day!==11)?"st":(day%10===2&&day!==12)?"nd":(day%10===3&&day!==13)?"rd":"th";
+    return { short:`monthly ${day}${suff}`, long:`Monthly on the ${day}${suff} at ${timeAt(h,m)}` };
+  }
+  if(haveTime && isEvery(dom) && isEvery(mon) && isEvery(dow)){
+    return { short:`daily ${pad(h)}:${pad(m)}`, long:`Every day at ${timeAt(h,m)}` };
+  }
+
+  return { short:expr, long:"Custom schedule" };
+}
+
+/* RELATIVE TIME */
+function relTime(iso){
+  if(!iso) return { text:"never", title:"" };
+  const t = new Date(iso).getTime();
+  const diff = t - NOW;
+  const abs = Math.abs(diff);
+  const fut = diff > 0;
+  const s = Math.round(abs/1000);
+  const mins = Math.round(s/60);
+  const hrs = Math.round(mins/60);
+  const days = Math.round(hrs/24);
+  let v;
+  if(s < 45) v = fut ? "in <1 min" : "just now";
+  else if(mins < 60) v = fut ? `in ${mins}m` : `${mins}m ago`;
+  else if(hrs < 24)  v = fut ? `in ${hrs}h`  : `${hrs}h ago`;
+  else               v = fut ? `in ${days}d` : `${days}d ago`;
+  return { text:v, title:fmtAbs(iso) };
+}
+function fmtAbs(iso){
+  const d = new Date(iso);
+  return `${MONTHS[d.getUTCMonth()+1]} ${d.getUTCDate()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+function fmtDuration(ms){
+  if(ms == null) return "—";
+  if(ms < 1000) return `${ms}ms`;
+  const s = ms/1000;
+  if(s < 60) return `${s.toFixed(s<10?1:0)}s`;
+  const m = Math.floor(s/60), rs = Math.round(s%60);
+  return `${m}m ${rs}s`;
+}
+
+/* STATUS STYLING */
+const STATUS = {
+  completed: { dot:"bg-emerald-400", ring:"shadow-[0_0_8px_1px_rgba(52,211,153,.55)]", text:"text-emerald-300", chip:"bg-emerald-500/12 text-emerald-300 border-emerald-500/25", label:"Completed" },
+  running:   { dot:"bg-sky-400",     ring:"dot-running",                                text:"text-sky-300",     chip:"bg-sky-500/12 text-sky-300 border-sky-500/25",         label:"Running" },
+  pending:   { dot:"bg-amber-400",   ring:"shadow-[0_0_8px_1px_rgba(251,191,36,.5)]",   text:"text-amber-300",   chip:"bg-amber-500/12 text-amber-300 border-amber-500/25",   label:"Pending" },
+  failed:    { dot:"bg-rose-500",    ring:"shadow-[0_0_8px_1px_rgba(244,63,94,.55)]",   text:"text-rose-300",    chip:"bg-rose-500/12 text-rose-300 border-rose-500/25",      label:"Failed" },
+  none:      { dot:"bg-slate-600",   ring:"",                                            text:"text-faint",       chip:"bg-ink-800 text-faint border-ink-700",                 label:"Never run" },
+};
+function statusOf(k){ return STATUS[k] || STATUS.none; }
+
+function scopeBadge(scope){
+  const map = {
+    system:      { label:"Ouro Boros",  cls:"bg-indigo-500/12 text-indigo-300 border-indigo-500/25" },
+    cortex:      { label:"Cortex",      cls:"bg-sky-500/12 text-sky-300 border-sky-500/25" },
+    "ai-ops-user":{ label:"This account",cls:"bg-emerald-500/12 text-emerald-300 border-emerald-500/25" },
+  };
+  return map[scope] || { label:scope, cls:"bg-ink-800 text-mute border-ink-700" };
+}
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+/* FILTERING */
+function visibleSchedules(){
+  const q = (document.getElementById("searchInput").value || "").trim().toLowerCase();
+  return schedules.filter(s => {
+    if(currentScope !== "all" && s.scope !== currentScope) return false;
+    if(q && !(`${s.name} ${s.task_type} ${s.cron}`.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+function visibleRuns(){
+  return runs.filter(r => currentScope === "all" || r.scope === currentScope);
+}
+
+/* HEALTH STRIP */
+function renderHealth(){
+  document.getElementById("tickInterval").textContent = DATA.loop.tick_seconds + "s";
+  const lt = relTime(DATA.loop.last_tick);
+  const ltEl = document.getElementById("lastTick");
+  ltEl.textContent = lt.text;
+  ltEl.title = lt.title;
+
+  const scoped = currentScope === "all" ? schedules : schedules.filter(s => s.scope === currentScope);
+  const scopedRuns = visibleRuns();
+  const enabled = scoped.filter(s => s.enabled).length;
+
+  const within24h = iso => iso && (NOW - new Date(iso).getTime()) <= 24*3600*1000 && new Date(iso).getTime() <= NOW;
+  const runs24 = scopedRuns.filter(r => within24h(r.started));
+  const fails24 = runs24.filter(r => r.status === "failed").length;
+  const runCount24 = runs24.length;
+
+  const tickAgeS = (NOW - new Date(DATA.loop.last_tick).getTime())/1000;
+  let verdict = "healthy";
+  if(!DATA.loop.alive || tickAgeS > DATA.loop.tick_seconds * 3) verdict = "down";
+  else if(fails24 > 0 || tickAgeS > DATA.loop.tick_seconds * 1.5) verdict = "degraded";
+
+  const heart = document.getElementById("heartDot");
+  const loopState = document.getElementById("loopState");
+  const vmap = {
+    healthy:  { dot:"bg-emerald-400 shadow-[0_0_12px_2px_rgba(52,211,153,.7)]", word:"Loop alive",     wc:"text-white" },
+    degraded: { dot:"bg-amber-400 shadow-[0_0_12px_2px_rgba(251,191,36,.6)]",   word:"Loop degraded", wc:"text-amber-200" },
+    down:     { dot:"bg-rose-500 shadow-[0_0_12px_2px_rgba(244,63,94,.6)]",     word:"Loop down",     wc:"text-rose-200" },
+  }[verdict];
+  heart.className = "heart w-3 h-3 rounded-full " + vmap.dot;
+  loopState.textContent = vmap.word;
+  loopState.className = "text-[15px] font-semibold " + vmap.wc;
+
+  const metric = (label, value, sub, tone) => {
+    const toneCls = { ok:"text-emerald-300", warn:"text-amber-300", bad:"text-rose-300", neutral:"text-white" }[tone] || "text-white";
+    const accent = { ok:"bg-emerald-400", warn:"bg-amber-400", bad:"bg-rose-400", neutral:"bg-slate-500" }[tone] || "bg-slate-500";
+    return `
+      <div class="relative rounded-xl bg-ink-900/60 border border-ink-700 px-3.5 py-3 overflow-hidden">
+        <span class="absolute left-0 top-3 bottom-3 w-[3px] rounded-full ${accent}"></span>
+        <div class="pl-1.5">
+          <div class="text-[11px] uppercase tracking-wider text-faint font-semibold">${label}</div>
+          <div class="mt-0.5 flex items-baseline gap-1.5">
+            <span class="text-[22px] leading-none font-semibold ${toneCls} tabular-nums">${value}</span>
+            <span class="text-[11px] text-faint">${sub}</span>
+          </div>
+        </div>
+      </div>`;
+  };
+
+  document.getElementById("healthMetrics").innerHTML =
+    metric("Enabled", enabled, `of ${scoped.length}`, "neutral") +
+    metric("Runs · 24h", runCount24, "executed", "neutral") +
+    metric("Failures · 24h", fails24, fails24 ? "needs attention" : "all clear", fails24 ? "bad" : "ok") +
+    metric("Tick interval", DATA.loop.tick_seconds + "s", "cadence", "neutral");
+}
+
+/* SCHEDULES TABLE */
+function renderSchedules(){
+  const body = document.getElementById("schedBody");
+  const list = visibleSchedules();
+  document.getElementById("schedCount").textContent = list.length;
+
+  const emptyEl = document.getElementById("schedEmpty");
+  const tableWrap = document.getElementById("schedTableWrap");
+  if(list.length === 0){
+    body.innerHTML = "";
+    tableWrap.classList.add("hidden");
+    emptyEl.classList.remove("hidden"); emptyEl.classList.add("flex");
+    return;
+  }
+  tableWrap.classList.remove("hidden");
+  emptyEl.classList.add("hidden"); emptyEl.classList.remove("flex");
+
+  body.innerHTML = list.map(s => {
+    const cad = cronToHuman(s.cron);
+    const st = statusOf(s.last_status || "none");
+    const last = s.last_run ? relTime(s.last_run) : { text:"never", title:"" };
+    const next = s.enabled ? (s.next_run ? relTime(s.next_run) : { text:"—", title:"" }) : { text:"paused", title:"Schedule disabled" };
+    const sb = scopeBadge(s.scope);
+    const llm = s.requires_llm
+      ? `<span data-tip="Calls an LLM" class="inline-flex items-center gap-1 text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md bg-violet-500/12 text-violet-300 border border-violet-500/25"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>LLM</span>`
+      : `<span data-tip="No model call" class="inline-flex items-center gap-1 text-[10.5px] font-semibold px-1.5 py-0.5 rounded-md bg-ink-800 text-faint border border-ink-700">no LLM</span>`;
+
+    return `
+    <tr class="sched-row group ${s.enabled ? "" : "opacity-[.62]"} hover:bg-ink-800/40 transition-colors" data-id="${s.id}">
+      <td class="py-3 pl-5 pr-3 align-middle">
+        <div class="flex items-center gap-2.5">
+          <span class="w-1.5 h-1.5 rounded-full ${s.enabled ? "bg-emerald-400" : "bg-slate-600"}"></span>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-[14px] font-semibold text-slate-100 truncate">${esc(s.name)}</span>
+              ${llm}
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-[11px] px-1.5 py-0.5 rounded border ${sb.cls} font-medium">${sb.label}</span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td class="py-3 px-3 align-middle">
+        <div class="text-[13px] font-medium text-slate-200">${cad.short}</div>
+        <div class="font-mono text-[11px] text-faint" data-tip="${esc(cad.long)}">${esc(s.cron)}</div>
+      </td>
+      <td class="py-3 px-3 align-middle">
+        <span class="font-mono text-[12px] text-slate-300 bg-ink-900/70 border border-ink-700 rounded-md px-1.5 py-0.5">${esc(s.task_type)}</span>
+      </td>
+      <td class="py-3 px-3 align-middle text-center">
+        <button class="tg js-toggle inline-block align-middle" role="switch" aria-checked="${s.enabled}" aria-label="Enable ${esc(s.name)}" data-id="${s.id}"></button>
+      </td>
+      <td class="py-3 px-3 align-middle">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full ${st.dot} ${st.ring} flex-none"></span>
+          <div class="leading-tight">
+            <div class="text-[13px] ${last.text==="never"?"text-faint":"text-slate-200"}" title="${last.title}">${last.text}</div>
+            <div class="text-[11px] ${st.text}">${st.label}</div>
+          </div>
+        </div>
+      </td>
+      <td class="py-3 px-3 align-middle">
+        <span class="text-[13px] ${next.text==="paused"?"text-faint italic":next.text==="—"?"text-faint":"text-slate-200"}" title="${next.title}">${next.text}</span>
+      </td>
+      <td class="py-3 px-3 pr-5 align-middle">
+        <div class="row-actions flex items-center justify-end gap-1">
+          <button class="js-run inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-200 bg-ink-800 hover:bg-brand hover:text-white border border-ink-700 hover:border-brand rounded-lg px-2.5 py-1.5 transition focus-ring disabled:opacity-40 disabled:cursor-not-allowed"
+            data-id="${s.id}" ${s.enabled ? "" : "disabled data-tip='Enable to run'"}>
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/></svg>
+            Run now
+          </button>
+          <button class="js-edit w-8 h-8 grid place-items-center rounded-lg text-mute hover:text-white hover:bg-ink-800 transition focus-ring" data-id="${s.id}" data-tip="Edit" aria-label="Edit ${esc(s.name)}">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <button class="js-del w-8 h-8 grid place-items-center rounded-lg text-mute hover:text-rose-400 hover:bg-rose-500/10 transition focus-ring" data-id="${s.id}" data-tip="Delete" aria-label="Delete ${esc(s.name)}">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  body.querySelectorAll(".js-toggle").forEach(b => b.addEventListener("click", () => toggleSchedule(b.dataset.id)));
+  body.querySelectorAll(".js-run").forEach(b => b.addEventListener("click", () => runNow(b.dataset.id, b)));
+  body.querySelectorAll(".js-del").forEach(b => b.addEventListener("click", () => askDelete(b.dataset.id)));
+  body.querySelectorAll(".js-edit").forEach(b => b.addEventListener("click", () => { const s = schedules.find(x=>x.id===b.dataset.id); toast(`Editing “${s.name}” — prototype only`, "info"); }));
+}
+
+/* RECENT RUNS */
+let runsView = "ready";
+function renderRuns(){
+  const list = document.getElementById("runsList");
+  const loading = document.getElementById("runsLoading");
+  const empty = document.getElementById("runsEmpty");
+  const error = document.getElementById("runsError");
+  [loading,empty,error].forEach(e => { e.classList.add("hidden"); e.classList.remove("flex"); });
+  list.classList.add("hidden");
+
+  if(runsView === "loading"){ loading.classList.remove("hidden"); document.getElementById("runsCount").textContent = "…"; return; }
+  if(runsView === "error"){ error.classList.remove("hidden"); error.classList.add("flex"); document.getElementById("runsCount").textContent = "!"; return; }
+
+  const data = visibleRuns().slice().sort((a,b) => new Date(b.started) - new Date(a.started));
+  document.getElementById("runsCount").textContent = data.length;
+
+  if(data.length === 0){ empty.classList.remove("hidden"); empty.classList.add("flex"); return; }
+
+  list.classList.remove("hidden");
+  list.innerHTML = data.map(r => {
+    const st = statusOf(r.status);
+    const started = relTime(r.started);
+    const sb = scopeBadge(r.scope);
+    const dur = r.duration_ms != null ? fmtDuration(r.duration_ms) : (r.status==="running" ? "running…" : r.status==="pending" ? "queued" : "—");
+    const resultLine = r.result
+      ? `<p class="mt-1.5 text-[12px] ${r.status==="failed"?"text-rose-300":"text-mute"} font-mono leading-snug break-words">${esc(r.result)}</p>`
+      : (r.status==="running"
+          ? `<p class="mt-1.5 text-[12px] text-sky-300/80 italic">in progress…</p>`
+          : r.status==="pending"
+            ? `<p class="mt-1.5 text-[12px] text-amber-300/80 italic">waiting in queue</p>`
+            : "");
+    return `
+    <li class="px-4 py-3.5 hover:bg-ink-800/40 transition-colors row-in">
+      <div class="flex items-start gap-3">
+        <span class="mt-1.5 w-2.5 h-2.5 rounded-full ${st.dot} ${st.ring} flex-none"></span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="text-[13.5px] font-semibold text-slate-100 truncate">${esc(r.schedule)}</span>
+            <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded border ${st.chip} font-semibold whitespace-nowrap">${st.label}</span>
+          </div>
+          <div class="mt-1 flex items-center gap-2 text-[11.5px] text-faint flex-wrap">
+            <span class="px-1.5 py-0.5 rounded border ${sb.cls} font-medium text-[10.5px]">${sb.label}</span>
+            <span title="${started.title}">${started.text}</span>
+            <span class="text-ink-600">·</span>
+            <span class="font-mono tabular-nums ${r.status==="failed"?"text-rose-300/80":""}">${dur}</span>
+          </div>
+          ${resultLine}
+        </div>
+      </div>
+    </li>`;
+  }).join("");
+}
+
+/* INTERACTIONS */
+function toggleSchedule(id){
+  const s = schedules.find(x => x.id === id);
+  if(!s) return;
+  s.enabled = !s.enabled;
+  if(s.enabled && !s.next_run){
+    s.next_run = new Date(NOW + DATA.loop.tick_seconds*1000).toISOString();
+  }
+  renderSchedules(); renderHealth();
+  toast(`${s.enabled ? "Enabled" : "Disabled"} “${s.name}”`, s.enabled ? "success" : "info");
+}
+
+function runNow(id, btn){
+  const s = schedules.find(x => x.id === id);
+  if(!s || !s.enabled) return;
+  const runId = "live-" + Math.random().toString(36).slice(2,8);
+  const startIso = new Date(NOW).toISOString();
+  runs.unshift({ id:runId, schedule:s.name, scope:s.scope, status:"running", started:startIso, duration_ms:null, result:null });
+  s.last_status = "running"; s.last_run = startIso;
+  renderRuns(); renderSchedules(); renderHealth();
+  toast(`Triggered “${s.name}”`, "run");
+
+  const ms = 900 + Math.floor(Math.random()*1400);
+  setTimeout(() => {
+    const run = runs.find(r => r.id === runId);
+    if(run){ run.status = "completed"; run.duration_ms = ms; run.result = `manual trigger ok (${ms}ms)`; }
+    const sch = schedules.find(x => x.id === id);
+    if(sch){ sch.last_status = "completed"; }
+    renderRuns(); renderSchedules(); renderHealth();
+    toast(`“${s.name}” completed in ${fmtDuration(ms)}`, "success");
+  }, ms);
+}
+
+/* DELETE CONFIRM */
+let pendingDelete = null;
+function askDelete(id){
+  const s = schedules.find(x => x.id === id);
+  if(!s) return;
+  pendingDelete = id;
+  document.getElementById("delName").textContent = s.name;
+  const scrim = document.getElementById("confirmScrim");
+  scrim.classList.remove("hidden"); scrim.classList.add("flex");
+  document.getElementById("delConfirm").focus();
+}
+function closeConfirm(){
+  const scrim = document.getElementById("confirmScrim");
+  scrim.classList.add("hidden"); scrim.classList.remove("flex");
+  pendingDelete = null;
+}
+document.getElementById("delCancel").addEventListener("click", closeConfirm);
+document.getElementById("confirmScrim").addEventListener("click", e => { if(e.target.id === "confirmScrim") closeConfirm(); });
+document.getElementById("delConfirm").addEventListener("click", () => {
+  const id = pendingDelete;
+  const s = schedules.find(x => x.id === id);
+  schedules = schedules.filter(x => x.id !== id);
+  closeConfirm();
+  renderSchedules(); renderHealth(); updateScopeCounts();
+  if(s) toast(`Deleted “${s.name}”`, "info");
+});
+
+/* TOASTS */
+function toast(msg, kind="info"){
+  const wrap = document.getElementById("toasts");
+  const cfg = {
+    success: { icon:`<path d="M20 6 9 17l-5-5"/>`, cls:"border-emerald-500/30", ic:"text-emerald-400", bar:"bg-emerald-400" },
+    info:    { icon:`<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>`, cls:"border-ink-600", ic:"text-slate-300", bar:"bg-slate-500" },
+    run:     { icon:`<polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none"/>`, cls:"border-brand/40", ic:"text-brand-soft", bar:"bg-brand-soft" },
+    error:   { icon:`<path d="M12 9v4M12 17h.01"/>`, cls:"border-rose-500/40", ic:"text-rose-400", bar:"bg-rose-400" },
+  }[kind] || {};
+  const el = document.createElement("div");
+  el.className = `toast-in relative overflow-hidden flex items-center gap-2.5 pl-3.5 pr-4 py-2.5 rounded-xl bg-ink-850 border ${cfg.cls} shadow-pop max-w-xs`;
+  el.setAttribute("role","status");
+  el.innerHTML = `
+    <span class="absolute left-0 top-0 bottom-0 w-[3px] ${cfg.bar}"></span>
+    <svg class="w-4 h-4 ${cfg.ic} flex-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${cfg.icon}</svg>
+    <span class="text-[13px] text-slate-200">${esc(msg)}</span>`;
+  wrap.appendChild(el);
+  setTimeout(() => {
+    el.style.transition = "opacity .3s, transform .3s";
+    el.style.opacity = "0"; el.style.transform = "translateY(8px)";
+    setTimeout(() => el.remove(), 320);
+  }, 2600);
+}
+
+/* SCOPE SELECTOR */
+function buildScopeSelector(){
+  const nav = document.getElementById("scopeSelector");
+  nav.innerHTML = SCOPES.map(sc => `
+    <button class="js-scope relative text-[13px] font-medium px-3 py-1.5 rounded-lg transition ${sc.key===currentScope?"seg-active":"text-mute hover:text-slate-200"}" data-scope="${sc.key}" aria-pressed="${sc.key===currentScope}">
+      ${sc.label}
+      <span class="js-scope-count ml-1.5 text-[10.5px] font-semibold ${sc.key===currentScope?"text-slate-400":"text-faint"}"></span>
+    </button>`).join("");
+  nav.querySelectorAll(".js-scope").forEach(b => b.addEventListener("click", () => setScope(b.dataset.scope)));
+
+  const sel = document.getElementById("scopeMobile");
+  sel.innerHTML = SCOPES.map(sc => `<option value="${sc.key}" ${sc.key===currentScope?"selected":""}>${sc.label}</option>`).join("");
+  sel.addEventListener("change", () => setScope(sel.value));
+  updateScopeCounts();
+}
+function updateScopeCounts(){
+  document.querySelectorAll(".js-scope").forEach(b => {
+    const k = b.dataset.scope;
+    const n = k === "all" ? schedules.length : schedules.filter(s => s.scope === k).length;
+    b.querySelector(".js-scope-count").textContent = n;
+  });
+}
+function setScope(key){
+  if(key === currentScope) return;
+  currentScope = key;
+  document.querySelectorAll(".js-scope").forEach(b => {
+    const on = b.dataset.scope === key;
+    b.classList.toggle("seg-active", on);
+    b.classList.toggle("text-mute", !on);
+    b.setAttribute("aria-pressed", on);
+    b.querySelector(".js-scope-count").className = `js-scope-count ml-1.5 text-[10.5px] font-semibold ${on?"text-slate-400":"text-faint"}`;
+  });
+  document.getElementById("scopeMobile").value = key;
+  renderAll();
+}
+
+/* DRAWER + FORM */
+const drawer = document.getElementById("drawer");
+const scrim = document.getElementById("scrim");
+let lastFocused = null;
+
+function openDrawer(){
+  lastFocused = document.activeElement;
+  const fScope = document.getElementById("f_scope");
+  if(["system","cortex","ai-ops-user"].includes(currentScope)) fScope.value = currentScope;
+  scrim.classList.remove("opacity-0","pointer-events-none");
+  drawer.classList.remove("translate-x-full");
+  setTimeout(() => document.getElementById("f_name").focus(), 120);
+  document.addEventListener("keydown", escClose);
+  updateCronPreview();
+}
+function closeDrawer(){
+  scrim.classList.add("opacity-0","pointer-events-none");
+  drawer.classList.add("translate-x-full");
+  document.removeEventListener("keydown", escClose);
+  clearErrors();
+  if(lastFocused) lastFocused.focus();
+}
+function escClose(e){ if(e.key === "Escape") closeDrawer(); }
+document.getElementById("newScheduleBtn").addEventListener("click", openDrawer);
+
+function wireFormSwitch(btn){
+  btn.addEventListener("click", () => btn.setAttribute("aria-checked", btn.getAttribute("aria-checked") === "true" ? "false" : "true"));
+  btn.addEventListener("keydown", e => { if(e.key===" "||e.key==="Enter"){ e.preventDefault(); btn.click(); } });
+}
+wireFormSwitch(document.getElementById("f_llm"));
+wireFormSwitch(document.getElementById("f_enabled"));
+
+document.getElementById("schedBody").addEventListener("keydown", e => {
+  if((e.key===" "||e.key==="Enter") && e.target.classList.contains("js-toggle")){ e.preventDefault(); e.target.click(); }
+});
+
+const cronInput = document.getElementById("f_cron");
+const cronPreview = document.getElementById("cronPreview");
+function updateCronPreview(){
+  const v = cronInput.value.trim();
+  if(!v){ cronPreview.textContent = "—"; cronPreview.className = "font-medium text-faint"; return; }
+  const parts = v.split(/\s+/);
+  if(parts.length !== 5){ cronPreview.textContent = "needs 5 fields (min hr dom mon dow)"; cronPreview.className = "font-medium text-amber-300"; return; }
+  const h = cronToHuman(v);
+  cronPreview.textContent = h.long;
+  cronPreview.className = "font-medium text-emerald-300";
+}
+cronInput.addEventListener("input", updateCronPreview);
+document.querySelectorAll(".cron-preset").forEach(b => b.addEventListener("click", () => { cronInput.value = b.dataset.cron; updateCronPreview(); cronInput.focus(); }));
+
+function setErr(input, msg){
+  const p = input.parentElement.querySelector(".err");
+  input.classList.toggle("border-rose-500/70", !!msg);
+  input.classList.toggle("border-ink-700", !msg);
+  if(p){ p.textContent = msg || ""; p.classList.toggle("hidden", !msg); }
+}
+function clearErrors(){
+  document.querySelectorAll("#scheduleForm .err").forEach(p => { p.textContent=""; p.classList.add("hidden"); });
+  document.querySelectorAll("#scheduleForm input, #scheduleForm textarea").forEach(i => { i.classList.remove("border-rose-500/70"); i.classList.add("border-ink-700"); });
+}
+const CRON_FIELD = /^(\*|(\*\/\d+)|(\d+)(-\d+)?)(,(\*|(\*\/\d+)|(\d+)(-\d+)?))*$/;
+function validCron(v){
+  const parts = v.trim().split(/\s+/);
+  if(parts.length !== 5) return false;
+  return parts.every(p => CRON_FIELD.test(p));
+}
+
+document.getElementById("scheduleForm").addEventListener("submit", e => {
+  e.preventDefault();
+  clearErrors();
+  let ok = true;
+  const name = document.getElementById("f_name");
+  const cron = document.getElementById("f_cron");
+  const type = document.getElementById("f_type");
+  const payload = document.getElementById("f_payload");
+
+  if(!name.value.trim()){ setErr(name, "Name is required"); ok = false; }
+  else if(schedules.some(s => s.name.toLowerCase() === name.value.trim().toLowerCase())){ setErr(name, "A schedule with this name already exists"); ok = false; }
+
+  if(!cron.value.trim()){ setErr(cron, "Cron expression is required"); ok = false; }
+  else if(!validCron(cron.value)){ setErr(cron, "Invalid cron — expected 5 fields (min hr dom mon dow)"); ok = false; }
+
+  if(!type.value.trim()){ setErr(type, "Task type is required"); ok = false; }
+  else if(!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(type.value.trim())){ setErr(type, "Use dotted form, e.g. account.daily_brief"); ok = false; }
+
+  const pv = payload.value.trim();
+  if(pv){ try { JSON.parse(pv); } catch { setErr(payload, "Payload must be valid JSON"); ok = false; } }
+
+  if(!ok){ toast("Please fix the highlighted fields", "error"); return; }
+
+  const enabledNew = document.getElementById("f_enabled").getAttribute("aria-checked") === "true";
+  const newSched = {
+    id: "n" + Date.now(),
+    name: name.value.trim(),
+    scope: document.getElementById("f_scope").value,
+    cron: cron.value.trim(),
+    task_type: type.value.trim(),
+    enabled: enabledNew,
+    requires_llm: document.getElementById("f_llm").getAttribute("aria-checked") === "true",
+    last_run: null,
+    last_status: null,
+    next_run: enabledNew ? new Date(NOW + DATA.loop.tick_seconds*1000).toISOString() : null,
+  };
+  schedules.unshift(newSched);
+
+  document.getElementById("scheduleForm").reset();
+  document.getElementById("f_payload").value = "{}";
+  document.getElementById("f_llm").setAttribute("aria-checked","false");
+  document.getElementById("f_enabled").setAttribute("aria-checked","true");
+  updateCronPreview();
+  closeDrawer();
+
+  if(currentScope !== "all" && currentScope !== newSched.scope) setScope(newSched.scope);
+  else renderAll();
+
+  toast(`Created “${newSched.name}”`, "success");
+  setTimeout(() => {
+    const row = document.querySelector(`#schedBody tr[data-id="${newSched.id}"]`);
+    if(row){ row.classList.add("ring-1","ring-brand/50","bg-brand/5"); setTimeout(()=>row.classList.remove("ring-1","ring-brand/50","bg-brand/5"), 1600); }
+  }, 60);
+});
+
+/* RUNS REFRESH */
+let refreshCount = 0;
+function refreshRunsFlow(forceError){
+  runsView = "loading"; renderRuns();
+  const icon = document.getElementById("refreshIcon");
+  icon.classList.add("spin");
+  setTimeout(() => {
+    icon.classList.remove("spin");
+    if(forceError){ runsView = "error"; renderRuns(); return; }
+    runsView = "ready"; renderRuns();
+  }, 650);
+}
+document.getElementById("refreshRuns").addEventListener("click", () => {
+  refreshCount++;
+  refreshRunsFlow(refreshCount % 3 === 0);
+});
+document.getElementById("retryRuns").addEventListener("click", () => { refreshRunsFlow(false); });
+
+document.getElementById("searchInput").addEventListener("input", () => renderSchedules());
+
+document.addEventListener("keydown", e => { if(e.key==="Escape" && !document.getElementById("confirmScrim").classList.contains("hidden")) closeConfirm(); });
+
+/* RENDER ALL */
+function renderAll(){
+  renderHealth();
+  renderSchedules();
+  renderRuns();
+  updateScopeCounts();
+}
+
+/* BOOT */
+buildScopeSelector();
+renderHealth();
+renderSchedules();
+runsView = "loading"; renderRuns();
+setTimeout(() => { runsView = "ready"; renderRuns(); }, 520);
+</script>
+</body>
+</html>

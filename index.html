@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OUROBOROS Scheduler — Design Build-Off</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0a0b0f;color:#e7e9ee;min-height:100vh;display:grid;place-items:center;padding:48px 20px}
+.wrap{max-width:920px;width:100%}
+.kicker{letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:#8b90a0;margin:0 0 10px}
+h1{font-size:clamp(28px,5vw,44px);margin:0 0 12px;font-weight:700;background:linear-gradient(90deg,#a5b4fc,#67e8f9);-webkit-background-clip:text;background-clip:text;color:transparent}
+p.lede{color:#aab0be;font-size:17px;line-height:1.6;max-width:680px;margin:0 0 36px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:680px){.grid{grid-template-columns:1fr}}
+a.card{display:block;text-decoration:none;color:inherit;border:1px solid #20232e;background:#11131a;border-radius:18px;padding:26px;transition:.18s transform,.18s border-color,.18s background}
+a.card:hover{transform:translateY(-3px);border-color:#3b3f52;background:#141722}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;margin-bottom:14px}
+.c1 .tag{background:rgba(129,140,248,.15);color:#a5b4fc;border:1px solid rgba(129,140,248,.3)}
+.c2 .tag{background:rgba(103,232,249,.13);color:#67e8f9;border:1px solid rgba(103,232,249,.3)}
+.card h2{margin:0 0 6px;font-size:22px}
+.card .sub{color:#8b90a0;font-size:14px;line-height:1.5;margin:0 0 16px}
+.go{font-size:14px;font-weight:600;color:#c7cbd6}
+.foot{margin-top:34px;color:#6b7080;font-size:13px;line-height:1.6;border-top:1px solid #1a1d27;padding-top:18px}
+.foot b{color:#9aa0b0}
+</style></head>
+<body><div class="wrap">
+<p class="kicker">Marathon M-137 · Design Build-Off</p>
+<h1>OUROBOROS Scheduler — Claude vs Codex</h1>
+<p class="lede">Two AIs were handed the <b style="color:#cdd2de">identical spec</b> — same product, same mock data, same constraints — and each built a Scheduler operator dashboard with no sight of the other. Open both and judge for yourself.</p>
+<div class="grid">
+<a class="card c1" href="./claude/"><span class="tag">Lane A · Claude</span><h2>Claude's build →</h2><p class="sub">Built by the Claude lane from SPEC.md alone.</p><span class="go">View dashboard →</span></a>
+<a class="card c2" href="./codex/"><span class="tag">Lane B · Codex</span><h2>Codex's build →</h2><p class="sub">Built by the Codex lane from the same SPEC.md.</p><span class="go">View dashboard →</span></a>
+</div>
+<p class="foot">Standalone design prototypes with <b>mock data only</b> — not connected to any live system and <b>not part of the OUROBOROS production site</b>. A 4-party evaluation (Claude · Cortex · OUROBOROS · Codex) will be published here at <b>/eval/</b>.</p>
+</div></body></html>
