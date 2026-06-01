@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scheduler · OUROBOROS</title>
+<style>
+/* ============================================================
+   OUROBOROS SCHEDULER — design system
+   Aesthetic: calm "observatory" dark theme. Deep slate-navy
+   canvas, warm parchment ink, a single jade accent for "alive",
+   amber for attention, coral-red for failure. Editorial serif
+   display paired with a clean grotesque-ish system body. Generous
+   whitespace, restrained motion, instant status legibility.
+   ============================================================ */
+:root{
+  --bg:#0c0e14;
+  --bg-2:#10131c;
+  --panel:#141823;
+  --panel-2:#181d2a;
+  --panel-hi:#1d2333;
+  --line:rgba(255,255,255,.07);
+  --line-2:rgba(255,255,255,.12);
+  --ink:#eef1f7;
+  --ink-2:#c2c8d6;
+  --ink-3:#8b93a7;
+  --ink-4:#868fa3;
+  --jade:#34d9a0;
+  --jade-dim:#1f6f56;
+  --jade-glow:rgba(52,217,160,.16);
+  --amber:#f5b948;
+  --amber-glow:rgba(245,185,72,.14);
+  --coral:#ff6b6b;
+  --coral-2:#ff8585;
+  --coral-glow:rgba(255,107,107,.14);
+  --sky:#6aa6ff;
+  --violet:#a78bfa;
+  --radius:16px;
+  --radius-sm:11px;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 18px 50px -24px rgba(0,0,0,.7);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:"Avenir Next",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  background-image:
+    radial-gradient(1100px 540px at 78% -8%, rgba(52,217,160,.07), transparent 60%),
+    radial-gradient(900px 520px at 8% -4%, rgba(106,166,255,.06), transparent 55%);
+  background-attachment:fixed;
+  min-height:100vh;padding-top:72px;
+}
+::selection{background:var(--jade-glow);color:#fff}
+a{color:inherit}
+button{font-family:inherit}
+:focus-visible{outline:2px solid var(--jade);outline-offset:2px;border-radius:6px}
+
+/* ---------- header (luxury header system, app-adapted) ---------- */
+.hdr{
+  position:fixed;top:0;left:0;width:100%;height:72px;z-index:1000;
+  display:flex;align-items:center;
+  border-bottom:1px solid transparent;
+  transition:background .3s var(--ease),border-color .3s var(--ease),backdrop-filter .3s var(--ease);
+}
+.hdr[data-scrolled="true"]{
+  background:rgba(12,14,20,.82);
+  backdrop-filter:blur(13px);-webkit-backdrop-filter:blur(13px);
+  border-bottom:1px solid var(--line);
+}
+.hdr__in{
+  width:100%;max-width:1280px;margin:0 auto;padding:0 28px;
+  display:flex;align-items:center;gap:20px;
+}
+.brand{display:flex;align-items:center;gap:13px;text-decoration:none;flex-shrink:0}
+.brand__mark{
+  width:34px;height:34px;border-radius:10px;position:relative;flex-shrink:0;
+  background:radial-gradient(circle at 32% 28%,#1c2433,#0e1119);
+  border:1px solid var(--line-2);display:grid;place-items:center;
+  box-shadow:0 0 0 4px rgba(52,217,160,.05);
+}
+.brand__ring{
+  width:17px;height:17px;border-radius:50%;
+  border:2px solid var(--jade);border-right-color:transparent;border-bottom-color:transparent;
+  animation:spin 9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.brand__txt{display:flex;flex-direction:column;line-height:1.05}
+.brand__name{font-family:var(--serif);font-size:19px;letter-spacing:.2px;font-weight:600}
+.brand__sub{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-4);font-weight:600}
+.hdr__spacer{flex:1}
+.hdr__live{display:flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel);font-size:12.5px;color:var(--ink-2)}
+.hdr__live .pulse{width:8px;height:8px;border-radius:50%;background:var(--jade);position:relative}
+.hdr__live .pulse::after{content:"";position:absolute;inset:-4px;border-radius:50%;
+  background:var(--jade);opacity:.5;animation:ping 2.4s var(--ease) infinite}
+@keyframes ping{0%{transform:scale(.6);opacity:.6}80%,100%{transform:scale(2.4);opacity:0}}
+
+/* tech-mode toggle in header */
+.techswitch{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.techswitch__label{font-size:12.5px;color:var(--ink-3);display:flex;align-items:center;gap:5px}
+.switch{position:relative;width:44px;height:25px;flex-shrink:0;border:0;padding:0;cursor:pointer;
+  background:var(--panel-hi);border:1px solid var(--line-2);border-radius:999px;transition:.25s var(--ease)}
+.switch[aria-checked="true"]{background:linear-gradient(90deg,var(--jade-dim),var(--jade));border-color:transparent}
+.switch__dot{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;
+  background:#fff;transition:.25s var(--ease);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.switch[aria-checked="true"] .switch__dot{transform:translateX(19px)}
+
+.btn{cursor:pointer;border:1px solid var(--line-2);background:var(--panel-2);color:var(--ink);
+  border-radius:10px;padding:9px 15px;font-size:13.5px;font-weight:600;display:inline-flex;
+  align-items:center;gap:8px;transition:.18s var(--ease);white-space:nowrap}
+.btn:hover{background:var(--panel-hi);border-color:rgba(255,255,255,.2);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn--primary{background:linear-gradient(180deg,#3ee3a9,#27b482);color:#06291f;border-color:transparent;
+  box-shadow:0 6px 18px -8px rgba(52,217,160,.6)}
+.btn--primary:hover{filter:brightness(1.06)}
+.btn--ghost{background:transparent}
+.btn--sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
+.btn--danger:hover{border-color:var(--coral);color:var(--coral-2)}
+
+/* ---------- layout ---------- */
+.wrap{max-width:1280px;margin:0 auto;padding:34px 28px 90px}
+.page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:26px}
+.page-head h1{font-family:var(--serif);font-size:34px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.page-head p{margin:0;color:var(--ink-3);font-size:14.5px;max-width:48ch}
+.eyebrow{font-size:11.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--jade);font-weight:700;margin-bottom:9px}
+
+/* scope selector */
+.scopebar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:24px}
+.scope-tabs{display:inline-flex;gap:3px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:13px}
+.scope-tab{border:0;background:transparent;color:var(--ink-3);cursor:pointer;font-weight:600;
+  font-size:13px;padding:8px 15px;border-radius:9px;transition:.18s var(--ease);display:flex;align-items:center;gap:8px}
+.scope-tab:hover{color:var(--ink)}
+.scope-tab[aria-selected="true"]{background:var(--panel-hi);color:var(--ink);box-shadow:var(--shadow)}
+.scope-tab .cnt{font-size:11px;color:var(--ink-4);background:var(--bg-2);padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
+.scope-tab[aria-selected="true"] .cnt{color:var(--jade);border-color:var(--jade-dim)}
+
+/* ---------- needs-attention callout ---------- */
+.alert{display:flex;gap:16px;align-items:flex-start;padding:18px 20px;border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(255,107,107,.10),rgba(255,107,107,.03));
+  border:1px solid rgba(255,107,107,.32);margin-bottom:24px;position:relative;overflow:hidden}
+.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--coral)}
+.alert__icon{width:38px;height:38px;border-radius:11px;flex-shrink:0;display:grid;place-items:center;
+  background:var(--coral-glow);color:var(--coral-2);border:1px solid rgba(255,107,107,.3)}
+.alert__icon svg{width:20px;height:20px}
+.alert__body{flex:1;min-width:0}
+.alert__title{font-weight:700;font-size:15.5px;margin-bottom:3px;display:flex;align-items:center;gap:9px}
+.alert__title .tag{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--coral-2);
+  border:1px solid rgba(255,107,107,.4);padding:2px 8px;border-radius:999px;font-weight:700}
+.alert__txt{color:var(--ink-2);font-size:14px}
+.alert__txt b{color:var(--ink)}
+.alert__act{display:flex;gap:9px;flex-shrink:0;align-items:center;flex-wrap:wrap}
+
+/* ---------- health strip ---------- */
+.health{display:grid;grid-template-columns:1.6fr repeat(4,1fr);gap:14px;margin-bottom:30px}
+.hcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;
+  box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hcard--lead{display:flex;flex-direction:column;justify-content:center;gap:6px}
+.hcard__k{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);font-weight:700;
+  display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.hcard__v{font-family:var(--serif);font-size:30px;font-weight:600;line-height:1;letter-spacing:-.01em}
+.hcard__v small{font-size:14px;color:var(--ink-3);font-family:var(--sans);font-weight:500;margin-left:4px}
+.hcard__note{font-size:12px;color:var(--ink-4);margin-top:6px}
+.hcard__v.is-bad{color:var(--coral-2)}
+.hcard__v.is-warn{color:var(--amber)}
+.hcard__v.is-good{color:var(--jade)}
+.healthline{display:flex;align-items:center;gap:11px}
+.healthline .dot{width:13px;height:13px;border-radius:50%;background:var(--jade);position:relative;flex-shrink:0;
+  box-shadow:0 0 0 5px var(--jade-glow)}
+.healthline.is-warn .dot{background:var(--amber);box-shadow:0 0 0 5px var(--amber-glow)}
+.healthline.is-bad .dot{background:var(--coral);box-shadow:0 0 0 5px var(--coral-glow)}
+.healthline .txt{font-family:var(--serif);font-size:19px;font-weight:600}
+.hcard--lead .sub{color:var(--ink-3);font-size:13.5px}
+.hcard--lead .sub b{color:var(--ink)}
+
+/* ---------- section ---------- */
+.section{margin-bottom:34px}
+.section__head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+.section__head h2{font-family:var(--serif);font-size:21px;font-weight:600;margin:0;letter-spacing:-.01em}
+.section__head .meta{font-size:13px;color:var(--ink-4)}
+
+/* ---------- schedules table ---------- */
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);
+  font-weight:700;padding:13px 18px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--bg-2)}
+tbody tr{border-bottom:1px solid var(--line);transition:background .15s var(--ease);cursor:pointer}
+tbody tr:last-child{border-bottom:0}
+tbody tr:hover{background:var(--panel-2)}
+tbody tr.is-failed{background:rgba(255,107,107,.05)}
+tbody tr.is-failed:hover{background:rgba(255,107,107,.09)}
+tbody tr.is-failed td:first-child{box-shadow:inset 3px 0 0 var(--coral)}
+td{padding:14px 18px;vertical-align:middle}
+.sch-name{display:flex;align-items:center;gap:11px}
+.sch-name .nm{font-weight:650;font-size:14.5px;letter-spacing:-.005em}
+.sch-name .desc{font-size:12.5px;color:var(--ink-3);margin-top:2px;max-width:42ch}
+.cron-raw{font-family:var(--mono);font-size:11.5px;color:var(--ink-4);margin-top:3px;display:none}
+body.tech .cron-raw{display:block}
+.tech-col{display:none}
+body.tech .tech-col{display:table-cell}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--line-2);color:var(--ink-2);background:var(--panel-2);white-space:nowrap}
+.badge--ai{color:var(--violet);border-color:rgba(167,139,250,.35);background:rgba(167,139,250,.1)}
+.badge--ai svg{width:12px;height:12px}
+.badge--manual{color:var(--ink-3)}
+
+.status{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.status .sdot{width:9px;height:9px;border-radius:50%;flex-shrink:0;position:relative}
+.s-completed .sdot{background:var(--jade)}
+.s-completed{color:var(--jade)}
+.s-running .sdot{background:var(--sky)}
+.s-running{color:var(--sky)}
+.s-running .sdot::after{content:"";position:absolute;inset:-4px;border-radius:50%;background:var(--sky);opacity:.5;animation:ping 1.8s var(--ease) infinite}
+.s-failed .sdot{background:var(--coral)}
+.s-failed{color:var(--coral-2)}
+.s-pending .sdot{background:var(--amber)}
+.s-pending{color:var(--amber)}
+.s-none .sdot{background:var(--ink-4)}
+.s-none{color:var(--ink-4)}
+.lastrun small{display:block;font-size:11.5px;color:var(--ink-4);margin-top:2px}
+
+/* enabled toggle (table) */
+.tg{position:relative;width:38px;height:22px;border:1px solid var(--line-2);background:var(--panel-hi);
+  border-radius:999px;cursor:pointer;padding:0;transition:.22s var(--ease);flex-shrink:0}
+.tg[aria-checked="true"]{background:linear-gradient(90deg,var(--jade-dim),var(--jade));border-color:transparent}
+.tg__d{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  transition:.22s var(--ease);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tg[aria-checked="true"] .tg__d{transform:translateX(16px)}
+.enabled-cell{display:flex;align-items:center;gap:10px}
+.enabled-cell .lbl{font-size:12px;color:var(--ink-3);min-width:46px}
+
+.rowacts{display:flex;gap:6px;justify-content:flex-end}
+.iact{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);
+  color:var(--ink-3);cursor:pointer;display:grid;place-items:center;transition:.16s var(--ease)}
+.iact:hover{background:var(--panel-hi);color:var(--ink);border-color:var(--line-2)}
+.iact svg{width:15px;height:15px}
+.iact--run:hover{color:var(--jade);border-color:var(--jade-dim)}
+.iact--del:hover{color:var(--coral-2);border-color:rgba(255,107,107,.4)}
+.row-disabled td:not(:last-child){opacity:.5}
+
+/* ---------- tooltip ---------- */
+.tip{position:relative;border-bottom:1px dotted var(--ink-4);cursor:help}
+.tip:focus-visible{outline:2px solid var(--jade);outline-offset:3px}
+.tipico{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;
+  border:1px solid var(--line-2);color:var(--ink-4);font-size:10px;font-weight:700;cursor:help;
+  vertical-align:middle;margin-left:4px;background:var(--panel-2);transition:.15s;font-style:normal}
+.tipico:hover,.tipico:focus-visible{color:var(--jade);border-color:var(--jade-dim)}
+[data-tip]{position:relative}
+[data-tip]::after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%) translateY(4px);
+  background:#05070c;color:var(--ink);border:1px solid var(--line-2);border-radius:10px;padding:9px 12px;
+  font-size:12.5px;line-height:1.45;font-weight:450;width:max-content;max-width:248px;white-space:normal;text-align:left;
+  box-shadow:0 14px 40px -12px rgba(0,0,0,.85);opacity:0;pointer-events:none;transition:.18s var(--ease);z-index:200}
+[data-tip]::before{
+  content:"";position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%) translateY(4px);
+  border:5px solid transparent;border-top-color:#05070c;opacity:0;transition:.18s var(--ease);z-index:201}
+[data-tip]:hover::after,[data-tip]:focus-visible::after,[data-tip]:focus-within::after{opacity:1;transform:translateX(-50%) translateY(0)}
+[data-tip]:hover::before,[data-tip]:focus-visible::before,[data-tip]:focus-within::before{opacity:1;transform:translateX(-50%) translateY(0)}
+[data-tip].tip-r::after{left:auto;right:0;transform:translateX(0) translateY(4px)}
+[data-tip].tip-r:hover::after,[data-tip].tip-r:focus-visible::after,[data-tip].tip-r:focus-within::after{transform:translateX(0) translateY(0)}
+
+/* ---------- runs panel ---------- */
+.runs{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.run{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:14px 18px;border-bottom:1px solid var(--line);
+  align-items:center;transition:background .15s}
+.run:last-child{border-bottom:0}
+.run:hover{background:var(--panel-2)}
+.run.is-failed{background:rgba(255,107,107,.05)}
+.run__main{display:flex;align-items:center;gap:12px;min-width:0}
+.run__name{font-weight:650;font-size:14px;white-space:nowrap}
+.run__res{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.run.is-failed .run__res{color:var(--coral-2)}
+.run__meta{display:flex;align-items:center;gap:16px;justify-self:end;font-size:12.5px;color:var(--ink-4);white-space:nowrap}
+.run__meta .dur{font-family:var(--mono);font-size:11.5px;display:none}
+body.tech .run__meta .dur{display:inline}
+.runs__states{display:flex;gap:8px;padding:11px 18px;border-top:1px solid var(--line);background:var(--bg-2);flex-wrap:wrap}
+.statebtn{font-size:11.5px;color:var(--ink-3);background:var(--panel-2);border:1px solid var(--line);
+  padding:5px 11px;border-radius:8px;cursor:pointer;transition:.15s}
+.statebtn:hover{color:var(--ink);border-color:var(--line-2)}
+.statebtn[aria-pressed="true"]{color:var(--jade);border-color:var(--jade-dim);background:var(--jade-glow)}
+
+.statepane{padding:46px 24px;text-align:center;color:var(--ink-3)}
+.statepane svg{width:34px;height:34px;color:var(--ink-4);margin-bottom:12px}
+.statepane h3{margin:0 0 5px;color:var(--ink-2);font-size:15px;font-family:var(--serif);font-weight:600}
+.statepane p{margin:0;font-size:13px;max-width:36ch;margin-inline:auto}
+.skel{height:50px;border-bottom:1px solid var(--line);position:relative;overflow:hidden}
+.skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--panel-hi),transparent);
+  transform:translateX(-100%);animation:shimmer 1.5s infinite}
+@keyframes shimmer{to{transform:translateX(100%)}}
+
+/* ---------- detail drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(4,6,10,.62);backdrop-filter:blur(3px);z-index:1500;
+  opacity:0;pointer-events:none;transition:.3s var(--ease)}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(560px,100%);z-index:1600;background:var(--bg-2);
+  border-left:1px solid var(--line-2);box-shadow:-30px 0 80px -30px rgba(0,0,0,.8);
+  transform:translateX(102%);transition:transform .42s var(--ease);display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.drawer__head{padding:24px 26px 20px;border-bottom:1px solid var(--line);position:relative}
+.drawer__close{position:absolute;top:20px;right:22px;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel-2);color:var(--ink-3);cursor:pointer;display:grid;place-items:center;transition:.16s}
+.drawer__close:hover{color:var(--ink);background:var(--panel-hi)}
+.drawer__eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-4);font-weight:700;margin-bottom:8px;display:flex;gap:8px;align-items:center}
+.drawer__title{font-family:var(--serif);font-size:26px;font-weight:600;margin:0 0 11px;padding-right:42px;letter-spacing:-.01em}
+.drawer__statusrow{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.chip{font-size:12px;font-weight:600;padding:4px 11px;border-radius:999px;border:1px solid var(--line-2);
+  background:var(--panel-2);color:var(--ink-2);display:inline-flex;align-items:center;gap:7px}
+.chip--on{color:var(--jade);border-color:var(--jade-dim);background:var(--jade-glow)}
+.chip--off{color:var(--ink-3)}
+.drawer__body{flex:1;overflow-y:auto;padding:24px 26px 40px}
+.expl{margin-bottom:22px}
+.expl__item{display:flex;gap:14px;padding:15px 0;border-bottom:1px solid var(--line)}
+.expl__item:first-child{padding-top:0}
+.expl__ic{width:34px;height:34px;border-radius:10px;flex-shrink:0;display:grid;place-items:center;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--jade)}
+.expl__ic svg{width:17px;height:17px}
+.expl__c .k{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);font-weight:700;margin-bottom:3px}
+.expl__c .v{font-size:14.5px;color:var(--ink-2);line-height:1.55}
+.expl__c .v b{color:var(--ink)}
+.expl__item--fail .expl__ic{background:var(--coral-glow);border-color:rgba(255,107,107,.35);color:var(--coral-2)}
+.expl__item--fail .v b{color:var(--coral-2)}
+
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:22px}
+.fact{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+.fact .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);font-weight:700;margin-bottom:5px;display:flex;align-items:center}
+.fact .v{font-size:15px;font-weight:600;color:var(--ink)}
+.fact .v small{display:block;font-size:12px;color:var(--ink-4);font-weight:500;margin-top:2px}
+
+.drawer__acts{display:flex;gap:9px;padding:18px 26px;border-top:1px solid var(--line);background:var(--bg);flex-wrap:wrap}
+.drawer__acts .btn{flex:1;justify-content:center;min-width:120px}
+
+/* technical expander */
+.tech-exp{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;margin-top:6px}
+.tech-exp__btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:14px 16px;background:transparent;border:0;color:var(--ink-2);cursor:pointer;font-size:13.5px;font-weight:650;font-family:inherit}
+.tech-exp__btn:hover{background:var(--panel-2)}
+.tech-exp__btn .lead{display:flex;align-items:center;gap:9px}
+.tech-exp__btn .lead svg{width:16px;height:16px;color:var(--ink-4)}
+.tech-exp__chev{transition:transform .25s var(--ease);color:var(--ink-4)}
+.tech-exp[aria-expanded="true"] .tech-exp__chev{transform:rotate(180deg)}
+.tech-exp__panel{display:none;padding:4px 16px 18px;border-top:1px solid var(--line)}
+.tech-exp[aria-expanded="true"] .tech-exp__panel{display:block}
+.kv{display:grid;grid-template-columns:128px 1fr;gap:7px 14px;font-size:13px;margin:13px 0 4px}
+.kv dt{color:var(--ink-4);font-weight:600}
+.kv dd{margin:0;color:var(--ink-2);font-family:var(--mono);font-size:12.5px;word-break:break-word}
+.kv dd .human{font-family:var(--sans);color:var(--ink-3);font-size:12px;display:block;margin-top:1px}
+.payload{background:#05070c;border:1px solid var(--line);border-radius:10px;padding:13px 15px;
+  font-family:var(--mono);font-size:12px;color:var(--ink-2);overflow-x:auto;margin-top:10px;line-height:1.6}
+.payload .pk{color:var(--sky)}.payload .ps{color:var(--jade)}.payload .pn{color:var(--amber)}
+
+/* ---------- modal (new schedule) ---------- */
+.modal-scrim{position:fixed;inset:0;background:rgba(4,6,10,.7);backdrop-filter:blur(4px);z-index:1700;
+  display:grid;place-items:center;padding:24px;opacity:0;pointer-events:none;transition:.25s var(--ease)}
+.modal-scrim.open{opacity:1;pointer-events:auto}
+.modal{width:min(620px,100%);max-height:90vh;overflow-y:auto;background:var(--bg-2);border:1px solid var(--line-2);
+  border-radius:20px;box-shadow:0 40px 100px -30px rgba(0,0,0,.9);transform:scale(.96) translateY(8px);transition:.25s var(--ease)}
+.modal-scrim.open .modal{transform:none}
+.modal__head{padding:24px 28px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.modal__head h2{font-family:var(--serif);font-size:23px;font-weight:600;margin:0 0 4px}
+.modal__head p{margin:0;color:var(--ink-3);font-size:13.5px}
+.modal__body{padding:22px 28px}
+.field{margin-bottom:18px}
+.field>label{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:650;color:var(--ink-2);margin-bottom:7px}
+.field input,.field select,.field textarea{width:100%;background:var(--panel);border:1px solid var(--line-2);
+  border-radius:10px;padding:11px 13px;color:var(--ink);font-size:14px;font-family:inherit;transition:.15s}
+.field textarea{font-family:var(--mono);font-size:12.5px;min-height:78px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--jade);box-shadow:0 0 0 3px var(--jade-glow)}
+.field .hint{font-size:12px;color:var(--ink-4);margin-top:6px;min-height:16px}
+.field .hint.ok{color:var(--jade)}
+.field .hint.err{color:var(--coral-2)}
+.field.invalid input,.field.invalid select{border-color:var(--coral);box-shadow:0 0 0 3px var(--coral-glow)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cron-presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.preset{font-size:11.5px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink-3);
+  padding:5px 10px;border-radius:7px;cursor:pointer;transition:.15s}
+.preset:hover{color:var(--jade);border-color:var(--jade-dim)}
+.check{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;font-size:13.5px}
+.modal__foot{padding:18px 28px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;
+  position:sticky;bottom:0;background:var(--bg-2)}
+
+/* toast */
+.toasts{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:10px;align-items:center;width:max-content;max-width:92vw}
+.toast{background:#05070c;border:1px solid var(--line-2);border-radius:12px;padding:12px 18px;color:var(--ink);
+  font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:11px;box-shadow:0 20px 50px -20px rgba(0,0,0,.9);
+  animation:toastin .4s var(--ease)}
+.toast .ti{width:9px;height:9px;border-radius:50%;background:var(--jade);flex-shrink:0}
+.toast.is-run .ti{background:var(--sky)}
+.toast.is-warn .ti{background:var(--amber)}
+@keyframes toastin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.toast.out{animation:toastout .35s var(--ease) forwards}
+@keyframes toastout{to{opacity:0;transform:translateY(10px)}}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+/* responsive */
+@media(max-width:1080px){
+  .health{grid-template-columns:1fr 1fr 1fr}
+  .hcard--lead{grid-column:1/-1}
+}
+@media(max-width:860px){
+  body{padding-top:64px}
+  .hdr{height:64px}
+  .hdr__live,.techswitch__label .word{display:none}
+  .page-head h1{font-size:27px}
+  .health{grid-template-columns:1fr 1fr}
+  .hcard--lead{grid-column:1/-1}
+  table thead{display:none}
+  table,tbody,tr,td{display:block;width:100%}
+  tbody tr{padding:14px 16px;position:relative}
+  td{padding:5px 0;border:0}
+  .col-hide-m{display:none}
+  .sch-name{margin-bottom:6px}
+  .rowacts{justify-content:flex-start;margin-top:8px;gap:10px}
+  .iact{width:44px;height:44px}
+  .iact svg{width:18px;height:18px}
+  .tg{width:46px;height:28px}
+  .tg__d{width:22px;height:22px}
+  .tg[aria-checked="true"] .tg__d{transform:translateX(18px)}
+  .alert{flex-direction:column}
+  .field-row{grid-template-columns:1fr}
+  .drawer{width:100%}
+}
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<header class="hdr" data-scrolled="false" role="banner">
+  <div class="hdr__in">
+    <a class="brand" href="#" aria-label="OUROBOROS Scheduler — home">
+      <span class="brand__mark"><span class="brand__ring"></span></span>
+      <span class="brand__txt">
+        <span class="brand__name">Scheduler</span>
+        <span class="brand__sub">Ouroboros</span>
+      </span>
+    </a>
+
+    <div class="hdr__spacer"></div>
+
+    <div class="hdr__live" role="status" aria-label="Scheduler loop status">
+      <span class="pulse" aria-hidden="true"></span>
+      <span>Loop alive · <span id="hdrTick">last beat 4 min ago</span></span>
+    </div>
+
+    <div class="techswitch">
+      <span class="techswitch__label" id="techLbl">
+        <span class="word">Technical mode</span>
+        <span class="tipico" tabindex="0" role="button" aria-label="What is technical mode?"
+          data-tip="Off by default. Turn on to reveal the engineering details — raw schedules (cron), task types, scopes, payloads, run IDs and exact durations.">i</span>
+      </span>
+      <button class="switch" id="techSwitch" role="switch" aria-checked="false" aria-labelledby="techLbl">
+        <span class="switch__dot"></span>
+      </button>
+    </div>
+
+    <button class="btn btn--primary" id="newBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      New schedule
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Automations · Overview</div>
+      <h1>Everything running on a timer</h1>
+      <p>The behind-the-scenes jobs that keep OUROBOROS healthy — backups, briefings, tidy-ups. Pick one to see what it does in plain language.</p>
+    </div>
+  </div>
+
+  <!-- scope selector -->
+  <div class="scopebar" role="region" aria-label="Scope filter">
+    <div class="scope-tabs" role="tablist" aria-label="Choose which automations to show">
+      <button class="scope-tab" role="tab" aria-selected="true" data-scope="all">All <span class="cnt" data-cnt="all">9</span></button>
+      <button class="scope-tab" role="tab" aria-selected="false" data-scope="system">Ouro Boros <span class="cnt" data-cnt="system">3</span></button>
+      <button class="scope-tab" role="tab" aria-selected="false" data-scope="cortex">Cortex <span class="cnt" data-cnt="cortex">3</span></button>
+      <button class="scope-tab" role="tab" aria-selected="false" data-scope="ai-ops-user">This account <span class="cnt" data-cnt="ai-ops-user">3</span></button>
+    </div>
+    <span style="font-size:12.5px;color:var(--ink-4)">
+      <span class="tip" tabindex="0" data-tip="A scope is just a category — which part of the system a job belongs to. Ouro Boros = the core platform, Cortex = the memory/knowledge system, This account = your personal jobs.">What is a scope?</span>
+    </span>
+  </div>
+
+  <!-- needs-attention callout -->
+  <div class="alert" id="alertBox" role="alert">
+    <div class="alert__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div class="alert__body">
+      <div class="alert__title">Needs attention <span class="tag">1 failure</span></div>
+      <div class="alert__txt"><b>cortex-graph-backup</b> failed on its last run (last night, 3:30am) — the database was locked, so <b>a backup did not happen</b>. This is the safety net for everything the system remembers. Re-run it to recover.</div>
+    </div>
+    <div class="alert__act">
+      <button class="btn btn--sm" data-open-sched="5">View details</button>
+      <button class="btn btn--primary btn--sm" data-rerun="cortex-graph-backup">Run backup now</button>
+    </div>
+  </div>
+
+  <!-- health strip -->
+  <section class="health" aria-label="Scheduler health summary">
+    <div class="hcard hcard--lead">
+      <div class="hcard__k">At a glance</div>
+      <div class="healthline is-warn" id="healthLine">
+        <span class="dot" aria-hidden="true"></span>
+        <span class="txt" id="healthTxt">Mostly healthy — 1 needs attention</span>
+      </div>
+      <div class="sub" id="healthSub"><b>6 active</b> · 3 paused · 1 running now</div>
+    </div>
+
+    <div class="hcard">
+      <div class="hcard__k">Last heartbeat
+        <span class="tip" tabindex="0" data-tip="A heartbeat (or tick) is the scheduler checking in to say it is awake. It happens every 60 seconds."><span class="tipico" aria-hidden="true">i</span></span>
+      </div>
+      <div class="hcard__v is-good" id="hTick">4<small>min ago</small></div>
+      <div class="hcard__note">checks in every 60s</div>
+    </div>
+
+    <div class="hcard">
+      <div class="hcard__k">Active now</div>
+      <div class="hcard__v" id="hEnabled">6</div>
+      <div class="hcard__note"><span class="tip" tabindex="0" data-tip="Enabled means the job is switched on and will run on schedule. Disabled jobs are paused and skipped.">switched-on jobs</span></div>
+    </div>
+
+    <div class="hcard">
+      <div class="hcard__k">Runs · 24h</div>
+      <div class="hcard__v" id="hRuns">7</div>
+      <div class="hcard__note">jobs run since yesterday</div>
+    </div>
+
+    <div class="hcard">
+      <div class="hcard__k">Failures · 24h</div>
+      <div class="hcard__v is-bad" id="hFails">1</div>
+      <div class="hcard__note">needs a re-run</div>
+    </div>
+  </section>
+
+  <!-- schedules table -->
+  <section class="section">
+    <div class="section__head">
+      <h2>Automations</h2>
+      <span class="meta" id="schMeta">Showing all 9</span>
+    </div>
+    <div class="tablewrap">
+      <table aria-label="Scheduled automations">
+        <thead>
+          <tr>
+            <th style="width:34%">Automation</th>
+            <th>How often <span class="tip" tabindex="0" data-tip="How frequently the job runs. In technical mode you will also see the raw cron expression that defines it."><span class="tipico" aria-hidden="true">i</span></span></th>
+            <th class="tech-col">Task type <span class="tip" tabindex="0" data-tip="The internal job identifier the system uses to route the work. Engineering detail."><span class="tipico" aria-hidden="true">i</span></span></th>
+            <th class="tech-col">Scope</th>
+            <th>Type</th>
+            <th class="col-hide-m">Last run <span class="tip" tabindex="0" data-tip="When the job last ran, and whether it finished cleanly (green), is still running (blue), failed (red) or is waiting (amber)."><span class="tipico" aria-hidden="true">i</span></span></th>
+            <th class="col-hide-m">Next run <span class="tip" tabindex="0" data-tip="When the job is scheduled to run next. Paused jobs have no next run."><span class="tipico" aria-hidden="true">i</span></span></th>
+            <th>On / off <span class="tip tip-r" tabindex="0" data-tip="Switch a job on to let it run on schedule, or off to pause it."><span class="tipico" aria-hidden="true">i</span></span></th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="schBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- recent runs -->
+  <section class="section">
+    <div class="section__head">
+      <h2>Recent activity</h2>
+      <span class="meta" id="runMeta"></span>
+    </div>
+    <div class="runs">
+      <div id="runList"></div>
+      <div class="runs__states" role="group" aria-label="Filter runs by status">
+        <button class="statebtn" aria-pressed="true" data-rfilter="all">All</button>
+        <button class="statebtn" aria-pressed="false" data-rfilter="completed">Done</button>
+        <button class="statebtn" aria-pressed="false" data-rfilter="running">Running</button>
+        <button class="statebtn" aria-pressed="false" data-rfilter="failed">Failed</button>
+        <button class="statebtn" aria-pressed="false" data-rfilter="pending">Waiting</button>
+        <span style="flex:1"></span>
+        <button class="statebtn" id="demoLoad">⟳ Demo: loading state</button>
+        <button class="statebtn" id="demoErr">⚠ Demo: error state</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== DETAIL DRAWER ===================== -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dwTitle" aria-hidden="true" tabindex="-1">
+  <div class="drawer__head">
+    <button class="drawer__close" id="dwClose" aria-label="Close details">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="drawer__eyebrow" id="dwEyebrow">Automation</div>
+    <h2 class="drawer__title" id="dwTitle">—</h2>
+    <div class="drawer__statusrow" id="dwStatus"></div>
+  </div>
+  <div class="drawer__body" id="dwBody"></div>
+  <div class="drawer__acts" id="dwActs"></div>
+</aside>
+
+<!-- ===================== NEW SCHEDULE MODAL ===================== -->
+<div class="modal-scrim" id="modalScrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal__head">
+      <div>
+        <h2 id="modalTitle">New automation</h2>
+        <p>Set it up in plain terms. Technical fields are optional.</p>
+      </div>
+      <button class="drawer__close" id="modalClose" aria-label="Close form" style="position:static">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="schForm" novalidate>
+      <div class="modal__body">
+        <div class="field" id="f-name">
+          <label for="i-name">Name</label>
+          <input id="i-name" name="name" placeholder="e.g. weekly-report" autocomplete="off" />
+          <div class="hint">A short, friendly name. Letters, numbers and dashes.</div>
+        </div>
+
+        <div class="field" id="f-desc">
+          <label for="i-desc">What does it do? <span style="color:var(--ink-4);font-weight:400">(plain English)</span></label>
+          <input id="i-desc" name="desc" placeholder="e.g. Emails me a summary every Monday morning" autocomplete="off" />
+          <div class="hint">One line a non-technical teammate would understand.</div>
+        </div>
+
+        <div class="field" id="f-cron">
+          <label for="i-cron">How often <span class="tip" tabindex="0" data-tip="A cron expression is a compact way to describe a schedule — five fields for minute, hour, day, month, weekday. Pick a preset and we will translate it for you."><span class="tipico" aria-hidden="true">i</span></span></label>
+          <input id="i-cron" name="cron" placeholder="*/5 * * * *" autocomplete="off" spellcheck="false" style="font-family:var(--mono)" />
+          <div class="hint" id="cronHint">Pick a preset, or type a cron expression.</div>
+          <div class="cron-presets">
+            <button type="button" class="preset" data-cron="*/5 * * * *">Every 5 min</button>
+            <button type="button" class="preset" data-cron="0 * * * *">Hourly</button>
+            <button type="button" class="preset" data-cron="0 9 * * *">Daily 9am</button>
+            <button type="button" class="preset" data-cron="0 6 * * *">Daily 6am</button>
+            <button type="button" class="preset" data-cron="0 4 * * 0">Weekly (Sun)</button>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field" id="f-scope">
+            <label for="i-scope">Scope</label>
+            <select id="i-scope" name="scope">
+              <option value="system">Ouro Boros (core platform)</option>
+              <option value="cortex">Cortex (memory &amp; knowledge)</option>
+              <option value="ai-ops-user">This account (personal)</option>
+            </select>
+            <div class="hint">Which part of the system this belongs to.</div>
+          </div>
+          <div class="field" id="f-ttype">
+            <label for="i-ttype">Task type <span style="color:var(--ink-4);font-weight:400">(technical)</span></label>
+            <input id="i-ttype" name="task_type" placeholder="e.g. account.weekly_report" autocomplete="off" style="font-family:var(--mono);font-size:12.5px" />
+            <div class="hint">Internal job identifier.</div>
+          </div>
+        </div>
+
+        <div class="field" id="f-payload">
+          <label for="i-payload">Payload <span class="tip" tabindex="0" data-tip="Optional settings passed to the job, written as JSON. Leave blank if you do not need it."><span class="tipico" aria-hidden="true">i</span></span> <span style="color:var(--ink-4);font-weight:400">(optional JSON)</span></label>
+          <textarea id="i-payload" name="payload" placeholder='{ "notify": true }' spellcheck="false"></textarea>
+          <div class="hint" id="payloadHint">Must be valid JSON, or empty.</div>
+        </div>
+
+        <div class="field" style="display:flex;gap:22px;flex-wrap:wrap">
+          <label class="check"><span class="tg" id="i-enabled" role="switch" aria-checked="true" tabindex="0" aria-label="Start switched on"><span class="tg__d"></span></span> <span>Start switched on</span></label>
+          <label class="check"><span class="tg" id="i-llm" role="switch" aria-checked="false" tabindex="0" aria-label="Uses AI"><span class="tg__d"></span></span>
+            <span>Uses AI <span class="tip" tabindex="0" data-tip="Uses AI means the job calls a language model to do its work (e.g. writing a summary). These jobs cost more and run slower."><span class="tipico" aria-hidden="true">i</span></span></span>
+          </label>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button type="button" class="btn btn--ghost" id="modalCancel">Cancel</button>
+        <button type="submit" class="btn btn--primary">Create automation</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+/* =================== MOCK DATA (verbatim from SPEC §5) =================== */
+const DATA = {
+  loop: { alive: true, tick_seconds: 60, last_tick: "2026-06-01T02:34:10Z" },
+  schedules: [
+    { id:"1", name:"shadow-heartbeat",     scope:"system",      cron:"*/5 * * * *",  task_type:"shadow.heartbeat",      enabled:true,  requires_llm:false, last_run:"2026-06-01T02:30:00Z", last_status:"completed", next_run:"2026-06-01T02:35:00Z" },
+    { id:"2", name:"cron-selftest",        scope:"system",      cron:"*/15 * * * *", task_type:"cron.selftest",         enabled:false, requires_llm:false, last_run:null,                   last_status:null,        next_run:null },
+    { id:"3", name:"pattern-reclassify",   scope:"system",      cron:"0 * * * *",    task_type:"patterns.reclassify",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T02:00:00Z", last_status:"completed", next_run:"2026-06-01T03:00:00Z" },
+    { id:"4", name:"cortex-distill",       scope:"cortex",      cron:"0 6 * * *",    task_type:"cortex.distill",        enabled:true,  requires_llm:true,  last_run:"2026-05-31T06:00:00Z", last_status:"completed", next_run:"2026-06-01T06:00:00Z" },
+    { id:"5", name:"cortex-graph-backup",  scope:"cortex",      cron:"30 3 * * *",   task_type:"cortex.backup",         enabled:true,  requires_llm:false, last_run:"2026-06-01T03:30:00Z", last_status:"failed",    next_run:"2026-06-02T03:30:00Z" },
+    { id:"6", name:"mem0-prune",           scope:"cortex",      cron:"0 4 * * 0",    task_type:"cortex.mem0_prune",     enabled:false, requires_llm:false, last_run:"2026-05-25T04:00:00Z", last_status:"completed", next_run:null },
+    { id:"7", name:"daily-brief",          scope:"ai-ops-user", cron:"0 13 * * *",   task_type:"account.daily_brief",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T13:00:00Z", last_status:"running",   next_run:"2026-06-02T13:00:00Z" },
+    { id:"8", name:"inbox-triage",         scope:"ai-ops-user", cron:"*/30 * * * *", task_type:"account.inbox_triage",  enabled:true,  requires_llm:true,  last_run:"2026-06-01T02:30:00Z", last_status:"completed", next_run:"2026-06-01T03:00:00Z" },
+    { id:"9", name:"estimate-tracker-sync",scope:"ai-ops-user", cron:"0 22 * * *",   task_type:"account.estimate_sync", enabled:false, requires_llm:false, last_run:"2026-05-30T22:00:00Z", last_status:"completed", next_run:null }
+  ],
+  runs: [
+    { id:"r1", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T02:30:00Z", duration_ms:412,   result:"shadow: up (100.76.17.21:22)" },
+    { id:"r2", schedule:"inbox-triage",        scope:"ai-ops-user", status:"completed", started:"2026-06-01T02:30:00Z", duration_ms:8840,  result:"12 messages triaged, 3 flagged" },
+    { id:"r3", schedule:"daily-brief",         scope:"ai-ops-user", status:"running",   started:"2026-06-01T13:00:00Z", duration_ms:null,  result:null },
+    { id:"r4", schedule:"cortex-graph-backup", scope:"cortex",      status:"failed",    started:"2026-06-01T03:30:00Z", duration_ms:2010,  result:"KuzuDB lock timeout after 2s" },
+    { id:"r5", schedule:"pattern-reclassify",  scope:"system",      status:"completed", started:"2026-06-01T02:00:00Z", duration_ms:15230, result:"84 patterns rescored" },
+    { id:"r6", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T02:25:00Z", duration_ms:388,   result:"shadow: up (100.76.17.21:22)" },
+    { id:"r7", schedule:"cortex-distill",      scope:"cortex",      status:"completed", started:"2026-05-31T06:00:00Z", duration_ms:92110, result:"1 weekly brief written" },
+    { id:"r8", schedule:"shadow-heartbeat",    scope:"system",      status:"pending",   started:"2026-06-01T02:35:00Z", duration_ms:null,  result:null }
+  ]
+};
+
+/* per-schedule plain-English explainer copy (FINAL-SPEC §4, author-approved) */
+const EXPLAIN = {
+  "shadow-heartbeat": {
+    desc:"Checks the Shadow cloud PC is switched on, every 5 minutes.",
+    what:"Checks that the Shadow cloud PC is switched on, every 5 minutes.",
+    why:"The Shadow PC powers itself off when no one is connected; this notices fast.",
+    matters:"It is your early warning that the backup workstation went dark.",
+    fail:"You might not learn the Shadow PC is offline until you try to use it."
+  },
+  "cron-selftest": {
+    desc:"A tiny harmless test the scheduler runs on itself.",
+    what:"A tiny harmless test the scheduler runs on itself.",
+    why:"To prove the scheduler is awake and processing jobs.",
+    matters:"It is the canary — if this stops, the whole automation system is stuck.",
+    fail:"Currently paused, so it is not watching right now.", paused:true
+  },
+  "pattern-reclassify": {
+    desc:"Re-grades the lessons the system has learned, once an hour.",
+    what:"Re-grades the lessons the system has learned, once an hour.",
+    why:"Keeps the what-works rankings current.",
+    matters:"Stale rankings mean weaker recommendations."
+  },
+  "cortex-distill": {
+    desc:"Turns the day's raw memory into a readable weekly brief, every morning at 6am.",
+    what:"Turns the day's raw memory into a readable weekly brief, every morning at 6am.",
+    why:"Raw memory is too much to read; this summarizes it.",
+    matters:"It is how the knowledge base stays digestible."
+  },
+  "cortex-graph-backup": {
+    desc:"Backs up the knowledge graph every night at 3:30am.",
+    what:"Backs up the knowledge graph every night at 3:30am.",
+    why:"Protects your institutional memory from loss or corruption.",
+    matters:"This is the safety net for everything the system remembers.",
+    fail:"Last night it FAILED (database was locked) — a backup did not happen; this needs attention.",
+    failNow:true
+  },
+  "mem0-prune": {
+    desc:"Clears out stale short-term memories weekly.",
+    what:"Clears out stale short-term memories weekly.",
+    why:"Keeps the memory store fast and relevant.",
+    matters:"Prevents slow, bloated recall.",
+    fail:"Currently paused, so old memories are not being cleared.", paused:true
+  },
+  "daily-brief": {
+    desc:"Writes your morning briefing, daily.",
+    what:"Writes your morning briefing, daily.",
+    why:"Your one-glance what-is-going-on summary.",
+    matters:"Starts your day informed.",
+    runningNow:true
+  },
+  "inbox-triage": {
+    desc:"Sorts your inbox every 30 minutes.",
+    what:"Sorts your inbox every 30 minutes.",
+    why:"Surfaces what actually needs you.",
+    matters:"Keeps you on top without manual sifting."
+  },
+  "estimate-tracker-sync": {
+    desc:"Updates the time-estimate accuracy tracker nightly.",
+    what:"Updates the time-estimate accuracy tracker nightly.",
+    why:"Keeps calibration data fresh.",
+    matters:"Better future estimates of how long work takes.",
+    fail:"Currently paused, so calibration data may go stale.", paused:true
+  }
+};
+
+const SCOPE_LABEL = { system:"Ouro Boros", cortex:"Cortex", "ai-ops-user":"This account" };
+const STATUS_TIP = {
+  completed:"Completed — the job ran and finished cleanly.",
+  running:"Running — the job is working right now.",
+  failed:"Failed — the job hit an error and did not finish. It needs a re-run.",
+  pending:"Waiting — the job is queued and will start shortly.",
+  none:"Has not run yet — this job has no run history."
+};
+const STATUS_WORD = { completed:"Completed", running:"Running now", failed:"Failed", pending:"Waiting", none:"Never run" };
+
+/* "now" anchored to the data so relative times are sensible */
+const NOW = new Date("2026-06-01T02:34:10Z").getTime();
+
+/* =================== helpers =================== */
+function rel(iso){
+  if(!iso) return {txt:"—", abs:""};
+  const t = new Date(iso).getTime();
+  const diff = t - NOW;
+  const past = diff < 0;
+  const s = Math.abs(diff)/1000;
+  let txt;
+  if(s < 60) txt = Math.round(s)+"s";
+  else if(s < 3600) txt = Math.round(s/60)+" min";
+  else if(s < 86400) txt = Math.round(s/3600)+" h";
+  else txt = Math.round(s/86400)+" d";
+  const abs = new Date(iso).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+  return { txt: past ? txt+" ago" : "in "+txt, abs };
+}
+function dur(ms){
+  if(ms==null) return "—";
+  if(ms < 1000) return ms+" ms";
+  if(ms < 60000) return (ms/1000).toFixed(ms<10000?2:1)+" s";
+  return Math.floor(ms/60000)+"m "+Math.round((ms%60000)/1000)+"s";
+}
+function cronToHuman(c){
+  const map = {
+    "*/5 * * * *":"Every 5 minutes",
+    "*/15 * * * *":"Every 15 minutes",
+    "*/30 * * * *":"Every 30 minutes",
+    "0 * * * *":"Every hour, on the hour",
+    "0 6 * * *":"Every day at 6:00am",
+    "0 9 * * *":"Every day at 9:00am",
+    "30 3 * * *":"Every day at 3:30am",
+    "0 13 * * *":"Every day at 1:00pm",
+    "0 22 * * *":"Every day at 10:00pm",
+    "0 4 * * 0":"Every Sunday at 4:00am"
+  };
+  if(map[c]) return map[c];
+  const p = c.trim().split(/\s+/);
+  if(p.length!==5) return "Custom schedule";
+  const [mi,h,dom,mon,dow]=p;
+  if(mi.startsWith("*/")) return "Every "+mi.slice(2)+" minutes";
+  if(h.startsWith("*/")) return "Every "+h.slice(2)+" hours";
+  const days=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const hh = h==="*"?null:((+h%12)||12);
+  const ap = +h<12?"am":"pm";
+  const tm = hh!=null ? hh+":"+String(+mi).padStart(2,"0")+ap : null;
+  if(dow!=="*"&&days[+dow]) return "Every "+days[+dow]+(tm?" at "+tm:"");
+  if(h!=="*"&&dom==="*") return "Every day"+(tm?" at "+tm:"");
+  return "Custom schedule";
+}
+function cadenceShort(c){
+  return cronToHuman(c).replace("Every day at","Daily").replace(", on the hour","");
+}
+function esc(s){return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
+
+/* live working copy */
+let S = JSON.parse(JSON.stringify(DATA.schedules));
+let R = JSON.parse(JSON.stringify(DATA.runs));
+let scope = "all";
+let runFilter = "all";
+let runState = "data"; // data | loading | empty | error
+
+function inScope(x){ return scope==="all" || x.scope===scope; }
+
+function updateCounts(){
+  const c = {all:S.length, system:0, cortex:0, "ai-ops-user":0};
+  S.forEach(s=>c[s.scope]++);
+  document.querySelectorAll("[data-cnt]").forEach(el=>{ el.textContent = c[el.dataset.cnt]; });
+}
+
+function renderHealth(){
+  const list = S.filter(inScope);
+  const enabled = list.filter(s=>s.enabled).length;
+  const paused = list.length - enabled;
+  const fails = list.filter(s=>s.last_status==="failed").length;
+  const running = list.filter(s=>s.last_status==="running").length;
+  const runs24 = R.filter(r=> scope==="all"||r.scope===scope ).length;
+
+  document.getElementById("hEnabled").textContent = enabled;
+  document.getElementById("hRuns").textContent = runs24;
+  const hf = document.getElementById("hFails");
+  hf.textContent = fails;
+  hf.className = "hcard__v "+(fails>0?"is-bad":"is-good");
+
+  const hl = document.getElementById("healthLine");
+  const ht = document.getElementById("healthTxt");
+  const hs = document.getElementById("healthSub");
+  if(fails>0){
+    hl.className="healthline is-warn";
+    ht.textContent = fails===1 ? "Mostly healthy — 1 needs attention" : fails+" need attention";
+  } else {
+    hl.className="healthline";
+    ht.textContent = list.length ? "All healthy" : "Nothing scheduled here";
+  }
+  const parts=["<b>"+enabled+" active</b>"];
+  if(paused) parts.push(paused+" paused");
+  if(running) parts.push(running+" running now");
+  hs.innerHTML = parts.join(" · ");
+
+  const failInScope = list.some(s=>s.last_status==="failed");
+  document.getElementById("alertBox").style.display = failInScope ? "" : "none";
+}
+
+function statusCell(s){
+  const st = s.last_status || "none";
+  const r = rel(s.last_run);
+  const word = STATUS_WORD[st];
+  return '<div class="status s-'+st+'" data-tip="'+esc(STATUS_TIP[st])+'" tabindex="0">'+
+      '<span class="sdot" aria-hidden="true"></span><span>'+word+'</span></div>'+
+      '<div class="lastrun"><small>'+(st==="none"?"no history":r.txt)+'</small></div>';
+}
+
+function renderSchedules(){
+  const body = document.getElementById("schBody");
+  const list = S.filter(inScope);
+  document.getElementById("schMeta").textContent =
+    scope==="all" ? "Showing all "+list.length : "Showing "+list.length+" in "+SCOPE_LABEL[scope];
+
+  if(!list.length){
+    body.innerHTML = '<tr><td colspan="9"><div class="statepane">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>'+
+      '<h3>No automations in this scope</h3><p>Nothing is scheduled under '+esc(SCOPE_LABEL[scope]||"this scope")+' yet. Create one to get started.</p>'+
+      '</div></td></tr>';
+    return;
+  }
+
+  body.innerHTML = list.map(function(s){
+    const ex = EXPLAIN[s.name]||{};
+    const nr = rel(s.next_run);
+    const llm = s.requires_llm
+      ? '<span class="badge badge--ai" data-tip="Uses AI — this job calls a language model. It costs more and runs slower." tabindex="0">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v6c0 5 8 8 8 8s8-3 8-8V7z"/></svg>AI</span>'
+      : '<span class="badge badge--manual" data-tip="No AI — a plain automation. Fast and cheap." tabindex="0">Standard</span>';
+    const failed = s.last_status==="failed";
+    return '<tr class="'+(failed?'is-failed':'')+' '+(!s.enabled?'row-disabled':'')+'" data-id="'+s.id+'" tabindex="0" role="button" aria-label="Open '+esc(s.name)+' details">'+
+      '<td><div class="sch-name"><div>'+
+          '<div class="nm">'+esc(s.name)+'</div>'+
+          '<div class="desc">'+esc(ex.desc||"")+'</div>'+
+          '<div class="cron-raw">'+esc(s.cron)+'</div>'+
+      '</div></div></td>'+
+      '<td><div class="sch-meta">'+
+          '<span class="cadence"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> '+esc(cadenceShort(s.cron))+'</span>'+
+          '<span class="cron-raw" data-tip="'+esc(cronToHuman(s.cron))+'" tabindex="0">cron: '+esc(s.cron)+'</span>'+
+      '</div></td>'+
+      '<td class="tech-col"><span style="font-family:var(--mono);font-size:12px;color:var(--ink-3)">'+esc(s.task_type)+'</span></td>'+
+      '<td class="tech-col"><span class="badge">'+esc(SCOPE_LABEL[s.scope])+'<small style="opacity:.6;margin-left:4px;font-family:var(--mono)">'+esc(s.scope)+'</small></span></td>'+
+      '<td>'+llm+'</td>'+
+      '<td class="col-hide-m">'+statusCell(s)+'</td>'+
+      '<td class="col-hide-m"><span style="color:var(--ink-2)">'+(s.enabled?nr.txt:'<span style="color:var(--ink-4)">paused</span>')+'</span></td>'+
+      '<td><div class="enabled-cell">'+
+          '<button class="tg" role="switch" aria-checked="'+s.enabled+'" data-toggle="'+s.id+'" aria-label="'+(s.enabled?'Switch off':'Switch on')+' '+esc(s.name)+'" onclick="event.stopPropagation()"><span class="tg__d"></span></button>'+
+          '<span class="lbl">'+(s.enabled?'On':'Off')+'</span>'+
+      '</div></td>'+
+      '<td><div class="rowacts" onclick="event.stopPropagation()">'+
+          '<button class="iact iact--run" data-run="'+s.id+'" data-tip="Run now" aria-label="Run '+esc(s.name)+' now"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>'+
+          '<button class="iact" data-edit="'+s.id+'" data-tip="Edit" aria-label="Edit '+esc(s.name)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
+          '<button class="iact iact--del" data-del="'+s.id+'" data-tip="Delete" aria-label="Delete '+esc(s.name)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'+
+      '</div></td>'+
+    '</tr>';
+  }).join("");
+}
+
+function renderRuns(){
+  const list = R.filter(r=> (scope==="all"||r.scope===scope) && (runFilter==="all"||r.status===runFilter) );
+  const meta = document.getElementById("runMeta");
+  const wrap = document.getElementById("runList");
+
+  if(runState==="loading"){
+    wrap.innerHTML = Array.from({length:5}).map(()=>'<div class="skel"></div>').join("");
+    meta.textContent="Loading…"; return;
+  }
+  if(runState==="error"){
+    wrap.innerHTML = '<div class="statepane">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>'+
+      '<h3>Could not load recent activity</h3><p>We hit a snag reaching the scheduler. Your jobs are unaffected.</p>'+
+      '<button class="btn btn--sm" style="margin-top:14px" id="retryRuns">Try again</button></div>';
+    meta.textContent="";
+    document.getElementById("retryRuns").onclick=function(){ runState="data"; renderRuns(); };
+    return;
+  }
+  meta.textContent = list.length+" "+(list.length===1?'run':'runs');
+  if(!list.length){
+    wrap.innerHTML = '<div class="statepane">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'+
+      '<h3>All clear</h3><p>No '+(runFilter==='all'?'':esc(runFilter)+' ')+'activity to show for this view.</p></div>';
+    return;
+  }
+  wrap.innerHTML = list.map(function(r){
+    const t = rel(r.started);
+    const res = r.result || (r.status==="running"?"working…":r.status==="pending"?"queued":"—");
+    return '<div class="run '+(r.status==='failed'?'is-failed':'')+'">'+
+      '<div class="run__main">'+
+        '<span class="status s-'+r.status+'" data-tip="'+esc(STATUS_TIP[r.status])+'" tabindex="0"><span class="sdot" aria-hidden="true"></span></span>'+
+        '<span class="run__name">'+esc(r.schedule)+'</span>'+
+        '<span class="run__res">'+esc(res)+'</span>'+
+      '</div>'+
+      '<div class="run__meta"><span>'+t.txt+'</span><span class="dur">'+dur(r.duration_ms)+'</span></div>'+
+    '</div>';
+  }).join("");
+}
+
+/* =================== drawer (explain + technical layers) =================== */
+let lastFocus=null;
+function openDrawer(id){
+  const s = S.find(x=>x.id===id); if(!s) return;
+  const ex = EXPLAIN[s.name]||{};
+  lastFocus = document.activeElement;
+
+  document.getElementById("dwEyebrow").textContent = SCOPE_LABEL[s.scope]+" automation";
+  document.getElementById("dwTitle").textContent = s.name;
+
+  const st = s.last_status||"none";
+  const chips = [];
+  chips.push('<span class="chip '+(s.enabled?'chip--on':'chip--off')+'">'+
+     '<span style="width:8px;height:8px;border-radius:50%;background:'+(s.enabled?'var(--jade)':'var(--ink-4)')+'"></span>'+
+     (s.enabled?'Switched on':'Paused')+'</span>');
+  chips.push('<span class="chip status s-'+st+'" data-tip="'+esc(STATUS_TIP[st])+'" tabindex="0" style="border-color:var(--line-2)">'+
+     '<span class="sdot"></span>'+STATUS_WORD[st]+'</span>');
+  if(s.requires_llm) chips.push('<span class="chip" style="color:var(--violet);border-color:rgba(167,139,250,.35)">Uses AI</span>');
+  document.getElementById("dwStatus").innerHTML = chips.join("");
+
+  const failItem = ex.fail ?
+    '<div class="expl__item '+(ex.failNow?'expl__item--fail':'')+'">'+
+      '<div class="expl__ic">'+(ex.failNow
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>')+'</div>'+
+      '<div class="expl__c"><div class="k">If it fails</div><div class="v">'+(ex.failNow?'<b>':'')+esc(ex.fail)+(ex.failNow?'</b>':'')+'</div></div>'+
+    '</div>' : "";
+
+  const nr = rel(s.next_run), lr = rel(s.last_run);
+  const lastRun = R.find(r=>r.schedule===s.name)||{};
+  const isTech = document.body.classList.contains('tech');
+  const explain =
+    '<div class="expl">'+
+      '<div class="expl__item">'+
+        '<div class="expl__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>'+
+        '<div class="expl__c"><div class="k">What it does</div><div class="v">'+esc(ex.what||"")+'</div></div>'+
+      '</div>'+
+      '<div class="expl__item">'+
+        '<div class="expl__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg></div>'+
+        '<div class="expl__c"><div class="k">Why it runs</div><div class="v">'+esc(ex.why||"")+'</div></div>'+
+      '</div>'+
+      '<div class="expl__item">'+
+        '<div class="expl__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg></div>'+
+        '<div class="expl__c"><div class="k">Why it matters</div><div class="v">'+esc(ex.matters||"")+'</div></div>'+
+      '</div>'+
+      failItem+
+    '</div>'+
+
+    '<div class="facts">'+
+      '<div class="fact"><div class="k">How often</div><div class="v">'+esc(cronToHuman(s.cron))+'</div></div>'+
+      '<div class="fact"><div class="k">Last run</div><div class="v">'+(st==="none"?"Never":STATUS_WORD[st])+'<small>'+(st==="none"?"no history":lr.txt+" · "+lr.abs)+'</small></div></div>'+
+      '<div class="fact"><div class="k">Next run</div><div class="v">'+(s.enabled&&s.next_run?nr.txt:"—")+'<small>'+(s.enabled&&s.next_run?nr.abs:(s.enabled?"none scheduled":"paused"))+'</small></div></div>'+
+      '<div class="fact"><div class="k">Type</div><div class="v">'+(s.requires_llm?"Uses AI":"Standard")+'<small>'+(s.requires_llm?"calls a language model":"plain automation")+'</small></div></div>'+
+    '</div>'+
+
+    '<div class="tech-exp" id="techExp" aria-expanded="'+isTech+'">'+
+      '<button class="tech-exp__btn" id="techExpBtn" aria-controls="techExpPanel" aria-expanded="'+isTech+'">'+
+        '<span class="lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg> Technical details</span>'+
+        '<svg class="tech-exp__chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>'+
+      '</button>'+
+      '<div class="tech-exp__panel" id="techExpPanel">'+
+        '<dl class="kv">'+
+          '<dt>Schedule (cron)</dt><dd>'+esc(s.cron)+'<span class="human">'+esc(cronToHuman(s.cron))+'</span></dd>'+
+          '<dt>Task type</dt><dd>'+esc(s.task_type)+'</dd>'+
+          '<dt>Scope / tenant</dt><dd>'+esc(s.scope)+'<span class="human">'+esc(SCOPE_LABEL[s.scope])+'</span></dd>'+
+          '<dt>Requires AI</dt><dd>'+s.requires_llm+'</dd>'+
+          '<dt>Enabled</dt><dd>'+s.enabled+'</dd>'+
+          '<dt>Run ID (last)</dt><dd>'+esc(lastRun.id || "—")+'</dd>'+
+          '<dt>Last duration</dt><dd>'+dur(lastRun.duration_ms)+'</dd>'+
+        '</dl>'+
+        '<div class="payload"><span class="pk">{</span><br>&nbsp;&nbsp;<span class="pk">"id"</span>: <span class="ps">"'+esc(s.id)+'"</span>,<br>&nbsp;&nbsp;<span class="pk">"task_type"</span>: <span class="ps">"'+esc(s.task_type)+'"</span>,<br>&nbsp;&nbsp;<span class="pk">"scope"</span>: <span class="ps">"'+esc(s.scope)+'"</span>,<br>&nbsp;&nbsp;<span class="pk">"requires_llm"</span>: <span class="pn">'+s.requires_llm+'</span>,<br>&nbsp;&nbsp;<span class="pk">"payload"</span>: <span class="pk">{}</span><br><span class="pk">}</span></div>'+
+      '</div>'+
+    '</div>';
+  document.getElementById("dwBody").innerHTML = explain;
+
+  const exp=document.getElementById("techExp"), btn=document.getElementById("techExpBtn");
+  btn.onclick=function(){ const open=exp.getAttribute("aria-expanded")==="true"; exp.setAttribute("aria-expanded",!open); btn.setAttribute("aria-expanded",!open); };
+
+  document.getElementById("dwActs").innerHTML =
+    '<button class="btn btn--primary" data-run="'+s.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run now</button>'+
+    '<button class="btn" data-toggle="'+s.id+'">'+(s.enabled?'Pause':'Switch on')+'</button>'+
+    '<button class="btn btn--danger" data-del="'+s.id+'">Delete</button>';
+
+  document.getElementById("scrim").classList.add("open");
+  const dw=document.getElementById("drawer");
+  dw.classList.add("open"); dw.setAttribute("aria-hidden","false");
+  dw.focus();
+}
+function closeDrawer(){
+  document.getElementById("scrim").classList.remove("open");
+  const dw=document.getElementById("drawer");
+  dw.classList.remove("open"); dw.setAttribute("aria-hidden","true");
+  if(lastFocus) lastFocus.focus();
+}
+
+function toast(msg,kind){
+  const t=document.createElement("div");
+  t.className="toast"+(kind?" is-"+kind:"");
+  const dot=document.createElement("span"); dot.className="ti";
+  const txt=document.createElement("span"); txt.textContent=msg;
+  t.appendChild(dot); t.appendChild(txt);
+  document.getElementById("toasts").appendChild(t);
+  setTimeout(function(){ t.classList.add("out"); setTimeout(()=>t.remove(),350); }, 2800);
+}
+
+function toggleSched(id){
+  const s=S.find(x=>x.id===id); if(!s) return;
+  s.enabled=!s.enabled;
+  if(!s.enabled) s.next_run=null;
+  else if(!s.next_run) s.next_run="2026-06-01T03:00:00Z";
+  toast(s.name+" "+(s.enabled?'switched on':'paused'), s.enabled?null:"warn");
+  renderAll();
+  if(document.getElementById("drawer").classList.contains("open")) openDrawer(id);
+}
+function runNow(id){
+  const s=S.find(x=>x.id===id); if(!s) return;
+  toast("Running "+s.name+"…","run");
+  const run={ id:"r"+Date.now(), schedule:s.name, scope:s.scope, status:"running", started:new Date().toISOString(), duration_ms:null, result:null };
+  R.unshift(run); renderRuns();
+  setTimeout(function(){
+    run.status="completed"; run.duration_ms=Math.floor(400+Math.random()*1200); run.result="manual run ok";
+    s.last_status="completed"; s.last_run=run.started;
+    toast(s.name+" finished cleanly"); renderAll();
+  }, 1600);
+}
+function delSched(id){
+  const s=S.find(x=>x.id===id); if(!s) return;
+  if(!confirm("Delete "+s.name+"? This cannot be undone in the prototype.")) return;
+  S=S.filter(x=>x.id!==id);
+  toast(s.name+" deleted","warn");
+  closeDrawer(); renderAll();
+}
+
+function renderAll(){ updateCounts(); renderHealth(); renderSchedules(); renderRuns(); }
+
+/* =================== form validation =================== */
+const CRON_RE=/^(\S+\s+){4}\S+$/;
+function setHint(fieldId,msg,cls){
+  const f=document.getElementById(fieldId);
+  const h=f.querySelector(".hint");
+  f.classList.toggle("invalid", cls==="err");
+  if(h){ h.textContent=msg; h.className="hint "+(cls||""); }
+}
+document.getElementById("i-cron").addEventListener("input",function(e){
+  const v=e.target.value.trim();
+  if(!v){ setHint("f-cron","Pick a preset, or type a cron expression.",""); return; }
+  if(CRON_RE.test(v)){ setHint("f-cron","Means: "+cronToHuman(v),"ok"); }
+  else setHint("f-cron","Needs five space-separated parts, e.g. */5 * * * *","err");
+});
+document.querySelectorAll(".preset").forEach(function(b){ b.onclick=function(){
+  const inp=document.getElementById("i-cron"); inp.value=b.dataset.cron;
+  inp.dispatchEvent(new Event("input"));
+};});
+document.getElementById("i-payload").addEventListener("input",function(e){
+  const v=e.target.value.trim();
+  if(!v){ setHint("f-payload","Must be valid JSON, or empty.",""); return; }
+  try{ JSON.parse(v); setHint("f-payload","Valid JSON ✓","ok"); }
+  catch(err){ setHint("f-payload","Not valid JSON yet.","err"); }
+});
+
+document.getElementById("schForm").addEventListener("submit",function(e){
+  e.preventDefault();
+  const f=e.target;
+  const name=f.name.value.trim();
+  const cron=f.cron.value.trim();
+  const payload=f.payload.value.trim();
+  let ok=true;
+  if(!/^[a-z0-9][a-z0-9-]*$/i.test(name)){ setHint("f-name","Use letters, numbers and dashes (no spaces).","err"); ok=false; }
+  else setHint("f-name","","");
+  if(!CRON_RE.test(cron)){ setHint("f-cron","Needs five space-separated parts, e.g. */5 * * * *","err"); ok=false; }
+  if(payload){ try{ JSON.parse(payload); }catch(err){ setHint("f-payload","Not valid JSON yet.","err"); ok=false; } }
+  if(!ok){ toast("Please fix the highlighted fields","warn"); return; }
+
+  const enabled=document.getElementById("i-enabled").getAttribute("aria-checked")==="true";
+  const newS={
+    id:"n"+Date.now(), name:name, scope:f.scope.value,
+    cron:cron, task_type:f.task_type.value.trim()||"custom.job",
+    enabled:enabled,
+    requires_llm:document.getElementById("i-llm").getAttribute("aria-checked")==="true",
+    last_run:null, last_status:null,
+    next_run:enabled?"2026-06-01T03:00:00Z":null
+  };
+  EXPLAIN[name]={ desc:f.desc.value.trim()||"Custom automation.", what:f.desc.value.trim()||"Custom automation.", why:"You created this job.", matters:"It runs on the schedule you set." };
+  S.push(newS);
+  closeModal(); renderAll();
+  toast(name+" created");
+});
+
+function openModal(prefill){
+  const f=document.getElementById("schForm"); f.reset();
+  ["f-name","f-cron","f-payload"].forEach(id=>document.getElementById(id).classList.remove("invalid"));
+  setHint("f-cron","Pick a preset, or type a cron expression.","");
+  setHint("f-payload","Must be valid JSON, or empty.","");
+  setHint("f-name","","");
+  document.getElementById("i-enabled").setAttribute("aria-checked","true");
+  document.getElementById("i-llm").setAttribute("aria-checked","false");
+  document.getElementById("modalTitle").textContent="New automation";
+  if(prefill){
+    const s=S.find(x=>x.id===prefill);
+    if(s){
+      document.getElementById("modalTitle").textContent="Edit automation";
+      f.name.value=s.name; f.desc.value=(EXPLAIN[s.name]||{}).desc||"";
+      f.cron.value=s.cron; f.cron.dispatchEvent(new Event("input"));
+      f.scope.value=s.scope; f.task_type.value=s.task_type;
+      document.getElementById("i-enabled").setAttribute("aria-checked",String(s.enabled));
+      document.getElementById("i-llm").setAttribute("aria-checked",String(s.requires_llm));
+    }
+  }
+  document.getElementById("modalScrim").classList.add("open");
+  setTimeout(()=>document.getElementById("i-name").focus(),80);
+}
+function closeModal(){ document.getElementById("modalScrim").classList.remove("open"); }
+
+/* =================== global event wiring =================== */
+document.addEventListener("click",function(e){
+  const t=e.target.closest("[data-id],[data-toggle],[data-run],[data-del],[data-edit],[data-open-sched],[data-rerun]");
+  if(!t) return;
+  if(t.dataset.openSched){ openDrawer(t.dataset.openSched); return; }
+  if(t.dataset.rerun){ const s=S.find(x=>x.name===t.dataset.rerun); if(s) runNow(s.id); return; }
+  if(t.dataset.toggle){ toggleSched(t.dataset.toggle); return; }
+  if(t.dataset.run){ runNow(t.dataset.run); return; }
+  if(t.dataset.del){ delSched(t.dataset.del); return; }
+  if(t.dataset.edit){ openModal(t.dataset.edit); return; }
+  if(t.dataset.id){ openDrawer(t.dataset.id); return; }
+});
+document.getElementById("schBody").addEventListener("keydown",function(e){
+  if(e.key==="Enter"||e.key===" "){
+    const row=e.target.closest("tr[data-id]");
+    const tg=e.target.closest(".tg");
+    if(tg){ e.preventDefault(); toggleSched(tg.dataset.toggle); return; }
+    if(row && e.target===row){ e.preventDefault(); openDrawer(row.dataset.id); }
+  }
+});
+
+document.querySelectorAll(".scope-tab").forEach(function(tab){
+  tab.addEventListener("click",function(){
+    document.querySelectorAll(".scope-tab").forEach(t=>t.setAttribute("aria-selected","false"));
+    tab.setAttribute("aria-selected","true");
+    scope=tab.dataset.scope; renderAll();
+  });
+});
+document.querySelectorAll("[data-rfilter]").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.querySelectorAll("[data-rfilter]").forEach(x=>x.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true");
+    runFilter=b.dataset.rfilter; runState="data"; renderRuns();
+  });
+});
+document.getElementById("demoLoad").onclick=function(){ runState="loading"; renderRuns(); setTimeout(()=>{runState="data";renderRuns();},1700); };
+document.getElementById("demoErr").onclick=function(){ runState="error"; renderRuns(); };
+
+const techSwitch=document.getElementById("techSwitch");
+function setTech(on){
+  document.body.classList.toggle("tech",on);
+  techSwitch.setAttribute("aria-checked",String(on));
+  const exp=document.getElementById("techExp");
+  if(exp){ exp.setAttribute("aria-expanded",String(on)); document.getElementById("techExpBtn").setAttribute("aria-expanded",String(on)); }
+}
+techSwitch.addEventListener("click",()=>setTech(techSwitch.getAttribute("aria-checked")!=="true"));
+techSwitch.addEventListener("keydown",function(e){ if(e.key===" "||e.key==="Enter"){e.preventDefault();techSwitch.click();}});
+
+document.querySelectorAll("#i-enabled,#i-llm").forEach(function(sw){
+  const flip=()=>sw.setAttribute("aria-checked",sw.getAttribute("aria-checked")!=="true");
+  sw.addEventListener("click",flip);
+  sw.addEventListener("keydown",function(e){ if(e.key===" "||e.key==="Enter"){e.preventDefault();flip();}});
+});
+
+document.getElementById("newBtn").onclick=()=>openModal();
+document.getElementById("modalClose").onclick=closeModal;
+document.getElementById("modalCancel").onclick=closeModal;
+document.getElementById("modalScrim").addEventListener("click",function(e){ if(e.target.id==="modalScrim") closeModal(); });
+document.getElementById("dwClose").onclick=closeDrawer;
+document.getElementById("scrim").onclick=closeDrawer;
+
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape"){
+    if(document.getElementById("modalScrim").classList.contains("open")) closeModal();
+    else if(document.getElementById("drawer").classList.contains("open")) closeDrawer();
+  }
+});
+
+function trap(container){
+  container.addEventListener("keydown",function(e){
+    if(e.key!=="Tab") return;
+    const f=container.querySelectorAll('a[href],button:not([disabled]),input,select,textarea,[tabindex]:not([tabindex="-1"])');
+    const vis=[].slice.call(f).filter(el=>el.offsetParent!==null||el===document.activeElement);
+    if(!vis.length) return;
+    const first=vis[0], last=vis[vis.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  });
+}
+trap(document.getElementById("drawer"));
+trap(document.querySelector(".modal"));
+
+function onScroll(){
+  document.querySelector(".hdr").setAttribute("data-scrolled", window.scrollY>40?"true":"false");
+}
+window.addEventListener("scroll",onScroll,{passive:true});
+
+/* boot */
+renderAll();
+onScroll();
+</script>
+</body>
+</html>
