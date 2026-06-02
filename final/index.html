@@ -23,8 +23,8 @@
   --line-2:rgba(255,255,255,.12);
   --ink:#eef1f7;
   --ink-2:#c2c8d6;
-  --ink-3:#8b93a7;
-  --ink-4:#868fa3;
+  --ink-3:#b2b9c9;
+  --ink-4:#a4abbd;
   --jade:#34d9a0;
   --jade-dim:#1f6f56;
   --jade-glow:rgba(52,217,160,.16);
@@ -121,6 +121,8 @@ button{font-family:inherit}
 .btn--ghost{background:transparent}
 .btn--sm{padding:6px 11px;font-size:12.5px;border-radius:8px}
 .btn--danger:hover{border-color:var(--coral);color:var(--coral-2)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
+.btn:disabled:hover{transform:none;filter:none;background:var(--panel-2)}
 
 /* ---------- layout ---------- */
 .wrap{max-width:1280px;margin:0 auto;padding:34px 28px 90px}
@@ -135,9 +137,9 @@ button{font-family:inherit}
 .scope-tab{border:0;background:transparent;color:var(--ink-3);cursor:pointer;font-weight:600;
   font-size:13px;padding:8px 15px;border-radius:9px;transition:.18s var(--ease);display:flex;align-items:center;gap:8px}
 .scope-tab:hover{color:var(--ink)}
-.scope-tab[aria-selected="true"]{background:var(--panel-hi);color:var(--ink);box-shadow:var(--shadow)}
+.scope-tab[aria-pressed="true"]{background:var(--panel-hi);color:var(--ink);box-shadow:var(--shadow)}
 .scope-tab .cnt{font-size:11px;color:var(--ink-4);background:var(--bg-2);padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
-.scope-tab[aria-selected="true"] .cnt{color:var(--jade);border-color:var(--jade-dim)}
+.scope-tab[aria-pressed="true"] .cnt{color:var(--jade);border-color:var(--jade-dim)}
 
 /* ---------- needs-attention callout ---------- */
 .alert{display:flex;gap:16px;align-items:flex-start;padding:18px 20px;border-radius:var(--radius);
@@ -224,6 +226,17 @@ body.tech .tech-col{display:table-cell}
 .s-none{color:var(--ink-4)}
 .lastrun small{display:block;font-size:11.5px;color:var(--ink-4);margin-top:2px}
 
+/* run-feed status: glyph inside the dot + a visible status word, so status is
+   never colour-alone (WCAG 1.4.1 Use of Color) */
+.run .status{gap:9px;flex-shrink:0;min-width:118px}
+.run .sdot{width:17px;height:17px;display:grid;place-items:center;color:#06120d;font-size:11px;font-weight:800;line-height:1}
+.run .sdot::before{content:attr(data-glyph)}
+.run .s-running .sdot,.run.is-failed .sdot{color:#fff}
+.s-failed .sdot{color:#fff}
+.s-pending .sdot{color:#3a2a05}
+.run__statusword{font-size:12.5px;font-weight:650}
+@media(max-width:560px){.run .status{min-width:0}.run__statusword{display:none}}
+
 /* enabled toggle (table) */
 .tg{position:relative;width:38px;height:22px;border:1px solid var(--line-2);background:var(--panel-hi);
   border-radius:999px;cursor:pointer;padding:0;transition:.22s var(--ease);flex-shrink:0}
@@ -241,6 +254,8 @@ body.tech .tech-col{display:table-cell}
 .iact svg{width:15px;height:15px}
 .iact--run:hover{color:var(--jade);border-color:var(--jade-dim)}
 .iact--del:hover{color:var(--coral-2);border-color:rgba(255,107,107,.4)}
+.iact:disabled{opacity:.4;cursor:not-allowed}
+.iact:disabled:hover{background:var(--panel-2);color:var(--ink-3);border-color:var(--line);transform:none}
 .row-disabled td:not(:last-child){opacity:.5}
 
 /* ---------- tooltip ---------- */
@@ -275,6 +290,15 @@ body.tech .tech-col{display:table-cell}
 .run__name{font-weight:650;font-size:14px;white-space:nowrap}
 .run__res{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .run.is-failed .run__res{color:var(--coral-2)}
+.run__expand{flex-shrink:0;font-size:11.5px;font-weight:650;color:var(--coral-2);background:transparent;
+  border:1px solid rgba(255,107,107,.4);border-radius:7px;padding:3px 9px;cursor:pointer;transition:.15s}
+.run__expand:hover{background:var(--coral-glow)}
+.run__expand[aria-expanded="true"]{background:var(--coral-glow)}
+.run__err{padding:0 18px 16px 46px;border-bottom:1px solid var(--line);background:rgba(255,107,107,.05)}
+.run__err[hidden]{display:none}
+.run__errmsg{font-family:var(--mono);font-size:12px;color:var(--coral-2);background:#05070c;
+  border:1px solid rgba(255,107,107,.25);border-radius:9px;padding:11px 13px;margin-bottom:11px;
+  white-space:pre-wrap;word-break:break-word;line-height:1.5}
 .run__meta{display:flex;align-items:center;gap:16px;justify-self:end;font-size:12.5px;color:var(--ink-4);white-space:nowrap}
 .run__meta .dur{font-family:var(--mono);font-size:11.5px;display:none}
 body.tech .run__meta .dur{display:inline}
@@ -283,6 +307,9 @@ body.tech .run__meta .dur{display:inline}
   padding:5px 11px;border-radius:8px;cursor:pointer;transition:.15s}
 .statebtn:hover{color:var(--ink);border-color:var(--line-2)}
 .statebtn[aria-pressed="true"]{color:var(--jade);border-color:var(--jade-dim);background:var(--jade-glow)}
+.rfc{display:inline-block;min-width:16px;font-size:10.5px;font-weight:700;color:var(--ink-4);
+  background:var(--bg-2);border:1px solid var(--line);border-radius:999px;padding:0 5px;margin-left:1px}
+.statebtn[aria-pressed="true"] .rfc{color:var(--jade);border-color:var(--jade-dim)}
 
 .statepane{padding:46px 24px;text-align:center;color:var(--ink-3)}
 .statepane svg{width:34px;height:34px;color:var(--ink-4);margin-bottom:12px}
@@ -433,7 +460,7 @@ body.tech .run__meta .dur{display:inline}
 <body>
 
 <!-- ===================== HEADER ===================== -->
-<header class="hdr" data-scrolled="false" role="banner">
+<header class="hdr" data-scrolled="false" role="banner" id="__pageHeader">
   <div class="hdr__in">
     <a class="brand" href="#" aria-label="OUROBOROS Scheduler — home">
       <span class="brand__mark"><span class="brand__ring"></span></span>
@@ -468,7 +495,7 @@ body.tech .run__meta .dur{display:inline}
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="__pageMain">
   <div class="page-head">
     <div>
       <div class="eyebrow">Automations · Overview</div>
@@ -479,14 +506,19 @@ body.tech .run__meta .dur{display:inline}
 
   <!-- scope selector -->
   <div class="scopebar" role="region" aria-label="Scope filter">
-    <div class="scope-tabs" role="tablist" aria-label="Choose which automations to show">
-      <button class="scope-tab" role="tab" aria-selected="true" data-scope="all">All <span class="cnt" data-cnt="all">9</span></button>
-      <button class="scope-tab" role="tab" aria-selected="false" data-scope="system">Ouro Boros <span class="cnt" data-cnt="system">3</span></button>
-      <button class="scope-tab" role="tab" aria-selected="false" data-scope="cortex">Cortex <span class="cnt" data-cnt="cortex">3</span></button>
-      <button class="scope-tab" role="tab" aria-selected="false" data-scope="ai-ops-user">This account <span class="cnt" data-cnt="ai-ops-user">3</span></button>
+    <div class="scope-tabs" role="group" aria-label="Filter automations by scope">
+      <button class="scope-tab" type="button" aria-pressed="true" data-scope="all">All <span class="cnt" data-cnt="all">9</span></button>
+      <button class="scope-tab" type="button" aria-pressed="false" data-scope="system">Ouro Boros <span class="cnt" data-cnt="system">3</span></button>
+      <button class="scope-tab" type="button" aria-pressed="false" data-scope="cortex">Cortex <span class="cnt" data-cnt="cortex">3</span></button>
+      <button class="scope-tab" type="button" aria-pressed="false" data-scope="ai-ops-user">This account <span class="cnt" data-cnt="ai-ops-user">3</span></button>
     </div>
     <span style="font-size:12.5px;color:var(--ink-4)">
       <span class="tip" tabindex="0" data-tip="A scope is just a category — which part of the system a job belongs to. Ouro Boros = the core platform, Cortex = the memory/knowledge system, This account = your personal jobs.">What is a scope?</span>
+    </span>
+    <span class="hdr__spacer" style="flex:1"></span>
+    <span class="tznote" id="tzNote" style="font-size:12px;color:var(--ink-4);display:inline-flex;align-items:center;gap:6px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Times shown in your local time
     </span>
   </div>
 
@@ -497,7 +529,7 @@ body.tech .run__meta .dur{display:inline}
     </div>
     <div class="alert__body">
       <div class="alert__title">Needs attention <span class="tag">1 failure</span></div>
-      <div class="alert__txt"><b>cortex-graph-backup</b> failed on its last run (last night, 3:30am) — the database was locked, so <b>a backup did not happen</b>. This is the safety net for everything the system remembers. Re-run it to recover.</div>
+      <div class="alert__txt"><b>cortex-graph-backup</b> failed on its last run (early this morning, 3:30am) — the database was locked, so <b>a backup did not happen</b>. This is the safety net for everything the system remembers. Re-run it to recover.</div>
     </div>
     <div class="alert__act">
       <button class="btn btn--sm" data-open-sched="5">View details</button>
@@ -533,7 +565,7 @@ body.tech .run__meta .dur{display:inline}
     <div class="hcard">
       <div class="hcard__k">Runs · 24h</div>
       <div class="hcard__v" id="hRuns">7</div>
-      <div class="hcard__note">jobs run since yesterday</div>
+      <div class="hcard__note" id="hRunsNote">in the last 24 hours</div>
     </div>
 
     <div class="hcard">
@@ -690,25 +722,25 @@ body.tech .run__meta .dur{display:inline}
 const DATA = {
   loop: { alive: true, tick_seconds: 60, last_tick: "2026-06-01T02:34:10Z" },
   schedules: [
-    { id:"1", name:"shadow-heartbeat",     scope:"system",      cron:"*/5 * * * *",  task_type:"shadow.heartbeat",      enabled:true,  requires_llm:false, last_run:"2026-06-01T02:30:00Z", last_status:"completed", next_run:"2026-06-01T02:35:00Z" },
+    { id:"1", name:"shadow-heartbeat",     scope:"system",      cron:"*/5 * * * *",  task_type:"shadow.heartbeat",      enabled:true,  requires_llm:false, last_run:"2026-06-01T14:00:00Z", last_status:"completed", next_run:"2026-06-01T14:10:00Z" },
     { id:"2", name:"cron-selftest",        scope:"system",      cron:"*/15 * * * *", task_type:"cron.selftest",         enabled:false, requires_llm:false, last_run:null,                   last_status:null,        next_run:null },
-    { id:"3", name:"pattern-reclassify",   scope:"system",      cron:"0 * * * *",    task_type:"patterns.reclassify",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T02:00:00Z", last_status:"completed", next_run:"2026-06-01T03:00:00Z" },
-    { id:"4", name:"cortex-distill",       scope:"cortex",      cron:"0 6 * * *",    task_type:"cortex.distill",        enabled:true,  requires_llm:true,  last_run:"2026-05-31T06:00:00Z", last_status:"completed", next_run:"2026-06-01T06:00:00Z" },
+    { id:"3", name:"pattern-reclassify",   scope:"system",      cron:"0 * * * *",    task_type:"patterns.reclassify",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T14:00:00Z", last_status:"completed", next_run:"2026-06-01T15:00:00Z" },
+    { id:"4", name:"cortex-distill",       scope:"cortex",      cron:"0 6 * * *",    task_type:"cortex.distill",        enabled:true,  requires_llm:true,  last_run:"2026-06-01T06:00:00Z", last_status:"completed", next_run:"2026-06-02T06:00:00Z" },
     { id:"5", name:"cortex-graph-backup",  scope:"cortex",      cron:"30 3 * * *",   task_type:"cortex.backup",         enabled:true,  requires_llm:false, last_run:"2026-06-01T03:30:00Z", last_status:"failed",    next_run:"2026-06-02T03:30:00Z" },
     { id:"6", name:"mem0-prune",           scope:"cortex",      cron:"0 4 * * 0",    task_type:"cortex.mem0_prune",     enabled:false, requires_llm:false, last_run:"2026-05-25T04:00:00Z", last_status:"completed", next_run:null },
     { id:"7", name:"daily-brief",          scope:"ai-ops-user", cron:"0 13 * * *",   task_type:"account.daily_brief",   enabled:true,  requires_llm:true,  last_run:"2026-06-01T13:00:00Z", last_status:"running",   next_run:"2026-06-02T13:00:00Z" },
-    { id:"8", name:"inbox-triage",         scope:"ai-ops-user", cron:"*/30 * * * *", task_type:"account.inbox_triage",  enabled:true,  requires_llm:true,  last_run:"2026-06-01T02:30:00Z", last_status:"completed", next_run:"2026-06-01T03:00:00Z" },
+    { id:"8", name:"inbox-triage",         scope:"ai-ops-user", cron:"*/30 * * * *", task_type:"account.inbox_triage",  enabled:true,  requires_llm:true,  last_run:"2026-06-01T14:00:00Z", last_status:"completed", next_run:"2026-06-01T14:30:00Z" },
     { id:"9", name:"estimate-tracker-sync",scope:"ai-ops-user", cron:"0 22 * * *",   task_type:"account.estimate_sync", enabled:false, requires_llm:false, last_run:"2026-05-30T22:00:00Z", last_status:"completed", next_run:null }
   ],
   runs: [
-    { id:"r1", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T02:30:00Z", duration_ms:412,   result:"shadow: up (100.76.17.21:22)" },
-    { id:"r2", schedule:"inbox-triage",        scope:"ai-ops-user", status:"completed", started:"2026-06-01T02:30:00Z", duration_ms:8840,  result:"12 messages triaged, 3 flagged" },
+    { id:"r1", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T14:00:00Z", duration_ms:412,   result:"shadow: up (100.76.17.21:22)" },
+    { id:"r2", schedule:"inbox-triage",        scope:"ai-ops-user", status:"completed", started:"2026-06-01T14:00:00Z", duration_ms:8840,  result:"12 messages triaged, 3 flagged" },
     { id:"r3", schedule:"daily-brief",         scope:"ai-ops-user", status:"running",   started:"2026-06-01T13:00:00Z", duration_ms:null,  result:null },
     { id:"r4", schedule:"cortex-graph-backup", scope:"cortex",      status:"failed",    started:"2026-06-01T03:30:00Z", duration_ms:2010,  result:"KuzuDB lock timeout after 2s" },
-    { id:"r5", schedule:"pattern-reclassify",  scope:"system",      status:"completed", started:"2026-06-01T02:00:00Z", duration_ms:15230, result:"84 patterns rescored" },
-    { id:"r6", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T02:25:00Z", duration_ms:388,   result:"shadow: up (100.76.17.21:22)" },
-    { id:"r7", schedule:"cortex-distill",      scope:"cortex",      status:"completed", started:"2026-05-31T06:00:00Z", duration_ms:92110, result:"1 weekly brief written" },
-    { id:"r8", schedule:"shadow-heartbeat",    scope:"system",      status:"pending",   started:"2026-06-01T02:35:00Z", duration_ms:null,  result:null }
+    { id:"r5", schedule:"pattern-reclassify",  scope:"system",      status:"completed", started:"2026-06-01T14:00:00Z", duration_ms:15230, result:"84 patterns rescored" },
+    { id:"r6", schedule:"shadow-heartbeat",    scope:"system",      status:"completed", started:"2026-06-01T13:55:00Z", duration_ms:388,   result:"shadow: up (100.76.17.21:22)" },
+    { id:"r7", schedule:"cortex-distill",      scope:"cortex",      status:"completed", started:"2026-06-01T06:00:00Z", duration_ms:92110, result:"1 weekly brief written" },
+    { id:"r8", schedule:"shadow-heartbeat",    scope:"system",      status:"pending",   started:"2026-06-01T14:10:00Z", duration_ms:null,  result:null }
   ]
 };
 
@@ -745,7 +777,7 @@ const EXPLAIN = {
     what:"Backs up the knowledge graph every night at 3:30am.",
     why:"Protects your institutional memory from loss or corruption.",
     matters:"This is the safety net for everything the system remembers.",
-    fail:"Last night it FAILED (database was locked) — a backup did not happen; this needs attention.",
+    fail:"On its last run it FAILED (database was locked) — a backup did not happen; this needs attention.",
     failNow:true
   },
   "mem0-prune": {
@@ -786,9 +818,14 @@ const STATUS_TIP = {
   none:"Has not run yet — this job has no run history."
 };
 const STATUS_WORD = { completed:"Completed", running:"Running now", failed:"Failed", pending:"Waiting", none:"Never run" };
+/* shape/glyph so status is never conveyed by colour alone (WCAG 1.4.1) */
+const STATUS_GLYPH = { completed:"✓", running:"●", failed:"!", pending:"…", none:"–" };
 
-/* "now" anchored to the data so relative times are sensible */
-const NOW = new Date("2026-06-01T02:34:10Z").getTime();
+/* "now" anchored to the data so relative times are sensible.
+   Set AFTER every "past" run (last_run / started) so all last-runs read as
+   PAST, the 13:00 daily-brief reads as ~1h-ago "running", and all next_runs
+   stay in the future. */
+const NOW = new Date("2026-06-01T14:05:00Z").getTime();
 
 /* =================== helpers =================== */
 function rel(iso){
@@ -836,10 +873,51 @@ function cronToHuman(c){
   const tm = hh!=null ? hh+":"+String(+mi).padStart(2,"0")+ap : null;
   if(dow!=="*"&&days[+dow]) return "Every "+days[+dow]+(tm?" at "+tm:"");
   if(h!=="*"&&dom==="*") return "Every day"+(tm?" at "+tm:"");
-  return "Custom schedule";
+  // richer fallback: echo the fields in words instead of a bare "Custom schedule"
+  const parts=[];
+  if(tm) parts.push("at "+tm);
+  else if(mi!=="*"&&h==="*") parts.push("at minute "+mi+" of every hour");
+  if(dom!=="*") parts.push("on day "+dom+" of the month");
+  if(mon!=="*") parts.push("in month "+mon);
+  if(dow!=="*"&&!days[+dow]) parts.push("on weekday "+dow);
+  return parts.length ? "Runs "+parts.join(", ") : "Custom schedule";
 }
 function cadenceShort(c){
   return cronToHuman(c).replace("Every day at","Daily").replace(", on the hour","");
+}
+/* compute the next fire time from a 5-field cron AFTER NOW (UTC), for the
+   common shapes this mock uses; returns ISO string, or null if we cannot
+   reason about it (caller then shows "next run pending"). Replaces the old
+   hard-coded fake "2026-06-01T03:00:00Z". */
+function nextRunFromCron(c){
+  const p=String(c).trim().split(/\s+/);
+  if(p.length!==5) return null;
+  const [mi,h,dom,mon,dow]=p;
+  const now=new Date(NOW);
+  const stepMin = mi.startsWith("*/") ? parseInt(mi.slice(2),10) : null;
+  // every-N-minutes (hour wildcard)
+  if(stepMin && h==="*"){
+    const d=new Date(now); d.setUTCSeconds(0,0);
+    d.setUTCMinutes(Math.ceil((now.getUTCMinutes()+ (now.getUTCSeconds()>0?1:0))/stepMin)*stepMin);
+    if(d.getTime()<=NOW) d.setUTCMinutes(d.getUTCMinutes()+stepMin);
+    return d.toISOString();
+  }
+  // hourly on a fixed minute (e.g. "0 * * * *")
+  if(h==="*" && /^\d+$/.test(mi)){
+    const d=new Date(now); d.setUTCSeconds(0,0); d.setUTCMinutes(parseInt(mi,10));
+    if(d.getTime()<=NOW) d.setUTCHours(d.getUTCHours()+1);
+    return d.toISOString();
+  }
+  // daily at fixed h:mi, optionally a fixed weekday
+  if(/^\d+$/.test(h) && /^\d+$/.test(mi)){
+    const d=new Date(now); d.setUTCSeconds(0,0); d.setUTCHours(parseInt(h,10)); d.setUTCMinutes(parseInt(mi,10));
+    if(d.getTime()<=NOW) d.setUTCDate(d.getUTCDate()+1);
+    if(/^\d+$/.test(dow)){ // advance to the requested weekday
+      while(d.getUTCDay()!==parseInt(dow,10)) d.setUTCDate(d.getUTCDate()+1);
+    }
+    return d.toISOString();
+  }
+  return null; // unknown shape → caller shows "next run pending"
 }
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
 
@@ -864,10 +942,20 @@ function renderHealth(){
   const paused = list.length - enabled;
   const fails = list.filter(s=>s.last_status==="failed").length;
   const running = list.filter(s=>s.last_status==="running").length;
-  const runs24 = R.filter(r=> scope==="all"||r.scope===scope ).length;
+  const dayAgo = NOW - 24*3600*1000;
+  const runs24list = R.filter(r=>{
+    if(!(scope==="all"||r.scope===scope)) return false;
+    const t = new Date(r.started).getTime();
+    return t>=dayAgo && t<=NOW;               // only runs that actually started in the last 24h
+  });
+  const runs24 = runs24list.length;
+  const ok24 = runs24list.filter(r=>r.status==="completed").length;
+  const fail24 = runs24list.filter(r=>r.status==="failed").length;
 
   document.getElementById("hEnabled").textContent = enabled;
   document.getElementById("hRuns").textContent = runs24;
+  const hRunsNote = document.getElementById("hRunsNote");
+  if(hRunsNote) hRunsNote.textContent = ok24+" ok · "+fail24+" failed";
   const hf = document.getElementById("hFails");
   hf.textContent = fails;
   hf.className = "hcard__v "+(fails>0?"is-bad":"is-good");
@@ -942,7 +1030,11 @@ function renderSchedules(){
           '<span class="lbl">'+(s.enabled?'On':'Off')+'</span>'+
       '</div></td>'+
       '<td><div class="rowacts" onclick="event.stopPropagation()">'+
-          '<button class="iact iact--run" data-run="'+s.id+'" data-tip="Run now" aria-label="Run '+esc(s.name)+' now"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>'+
+          '<button class="iact iact--run" data-run="'+s.id+'"'+
+              (s.last_status==="running"?' disabled data-tip="Already running" aria-label="'+esc(s.name)+' is already running"'
+               : s.enabled?' data-tip="Run now" aria-label="Run '+esc(s.name)+' now"'
+               : ' data-tip="Paused — run once anyway" aria-label="Run '+esc(s.name)+' once (paused)"')+
+              '><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>'+
           '<button class="iact" data-edit="'+s.id+'" data-tip="Edit" aria-label="Edit '+esc(s.name)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>'+
           '<button class="iact iact--del" data-del="'+s.id+'" data-tip="Delete" aria-label="Delete '+esc(s.name)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>'+
       '</div></td>'+
@@ -951,9 +1043,20 @@ function renderSchedules(){
 }
 
 function renderRuns(){
-  const list = R.filter(r=> (scope==="all"||r.scope===scope) && (runFilter==="all"||r.status===runFilter) );
+  const scoped = R.filter(r=> scope==="all"||r.scope===scope );
+  const list = scoped.filter(r=> runFilter==="all"||r.status===runFilter );
   const meta = document.getElementById("runMeta");
   const wrap = document.getElementById("runList");
+
+  // per-status counts on the filter buttons (P3.16)
+  const counts={all:scoped.length,completed:0,running:0,failed:0,pending:0};
+  scoped.forEach(r=>{ if(counts[r.status]!=null) counts[r.status]++; });
+  document.querySelectorAll("[data-rfilter]").forEach(function(b){
+    const k=b.dataset.rfilter, n=counts[k];
+    let c=b.querySelector(".rfc");
+    if(!c){ c=document.createElement("span"); c.className="rfc"; b.appendChild(document.createTextNode(" ")); b.appendChild(c); }
+    c.textContent=n;
+  });
 
   if(runState==="loading"){
     wrap.innerHTML = Array.from({length:5}).map(()=>'<div class="skel"></div>').join("");
@@ -978,23 +1081,52 @@ function renderRuns(){
   wrap.innerHTML = list.map(function(r){
     const t = rel(r.started);
     const res = r.result || (r.status==="running"?"working…":r.status==="pending"?"queued":"—");
-    return '<div class="run '+(r.status==='failed'?'is-failed':'')+'">'+
+    const isFail=r.status==="failed";
+    const head='<div class="run '+(isFail?'is-failed':'')+'"'+(isFail?' data-runfail="'+esc(r.id)+'"':'')+'>'+
       '<div class="run__main">'+
-        '<span class="status s-'+r.status+'" data-tip="'+esc(STATUS_TIP[r.status])+'" tabindex="0"><span class="sdot" aria-hidden="true"></span></span>'+
+        '<span class="status s-'+r.status+'" data-tip="'+esc(STATUS_TIP[r.status])+'" tabindex="0">'+
+          '<span class="sdot" data-glyph="'+STATUS_GLYPH[r.status]+'" aria-hidden="true"></span>'+
+          '<span class="run__statusword">'+esc(STATUS_WORD[r.status])+'</span>'+
+          '<span class="sr-only">Status: '+esc(STATUS_WORD[r.status])+'.</span>'+
+        '</span>'+
         '<span class="run__name">'+esc(r.schedule)+'</span>'+
         '<span class="run__res">'+esc(res)+'</span>'+
+        (isFail?'<button class="run__expand" data-runfail-btn="'+esc(r.id)+'" aria-expanded="false" aria-controls="rf-'+esc(r.id)+'">View error</button>':'')+
       '</div>'+
       '<div class="run__meta"><span>'+t.txt+'</span><span class="dur">'+dur(r.duration_ms)+'</span></div>'+
     '</div>';
+    if(!isFail) return head;
+    // failed → expandable error detail + re-run, error shown in full (no truncation)
+    return head+
+      '<div class="run__err" id="rf-'+esc(r.id)+'" hidden>'+
+        '<div class="run__errmsg"><span class="sr-only">Error detail: </span>'+esc(r.result||"Unknown error")+'</div>'+
+        '<button class="btn btn--sm" data-rerun-sched="'+esc(r.schedule)+'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Re-run</button>'+
+      '</div>';
   }).join("");
 }
 
+/* =================== overlay focus / inert management =================== */
+let lastFocus=null;          // restores focus when the drawer closes
+let modalLastFocus=null;     // restores focus when the modal closes
+function anyOverlayOpen(){
+  return document.getElementById("drawer").classList.contains("open")
+      || document.getElementById("modalScrim").classList.contains("open");
+}
+/* make the page chrome unreachable by AT + tab while any overlay is open */
+function setInert(on){
+  ["__pageHeader","__pageMain"].forEach(function(id){
+    const el=document.getElementById(id); if(!el) return;
+    if(on){ el.setAttribute("inert",""); el.setAttribute("aria-hidden","true"); }
+    else { el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); }
+  });
+}
+
 /* =================== drawer (explain + technical layers) =================== */
-let lastFocus=null;
 function openDrawer(id){
   const s = S.find(x=>x.id===id); if(!s) return;
   const ex = EXPLAIN[s.name]||{};
-  lastFocus = document.activeElement;
+  if(!document.getElementById("drawer").classList.contains("open"))
+    lastFocus = document.activeElement;   // only capture trigger on first open (run-now re-renders drawer)
 
   document.getElementById("dwEyebrow").textContent = SCOPE_LABEL[s.scope]+" automation";
   document.getElementById("dwTitle").textContent = s.name;
@@ -1067,26 +1199,33 @@ function openDrawer(id){
   const exp=document.getElementById("techExp"), btn=document.getElementById("techExpBtn");
   btn.onclick=function(){ const open=exp.getAttribute("aria-expanded")==="true"; exp.setAttribute("aria-expanded",!open); btn.setAttribute("aria-expanded",!open); };
 
+  const isRunning=s.last_status==="running";
   document.getElementById("dwActs").innerHTML =
-    '<button class="btn btn--primary" data-run="'+s.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run now</button>'+
+    '<button class="btn btn--primary" data-run="'+s.id+'"'+(isRunning?' disabled':'')+'><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> '+(isRunning?'Running…':(s.enabled?'Run now':'Run once'))+'</button>'+
     '<button class="btn" data-toggle="'+s.id+'">'+(s.enabled?'Pause':'Switch on')+'</button>'+
     '<button class="btn btn--danger" data-del="'+s.id+'">Delete</button>';
 
   document.getElementById("scrim").classList.add("open");
   const dw=document.getElementById("drawer");
+  const wasOpen=dw.classList.contains("open");
   dw.classList.add("open"); dw.setAttribute("aria-hidden","false");
-  dw.focus();
+  setInert(true);
+  if(!wasOpen) setTimeout(()=>document.getElementById("dwClose").focus(),60); // predictable trap entry
 }
 function closeDrawer(){
   document.getElementById("scrim").classList.remove("open");
   const dw=document.getElementById("drawer");
   dw.classList.remove("open"); dw.setAttribute("aria-hidden","true");
-  if(lastFocus) lastFocus.focus();
+  if(!anyOverlayOpen()) setInert(false);
+  if(lastFocus){ lastFocus.focus(); lastFocus=null; }
 }
 
 function toast(msg,kind){
   const t=document.createElement("div");
   t.className="toast"+(kind?" is-"+kind:"");
+  // warn/error variants must interrupt → role=alert (assertive); benign → status (polite)
+  if(kind==="warn"||kind==="error"){ t.setAttribute("role","alert"); t.setAttribute("aria-live","assertive"); }
+  else { t.setAttribute("role","status"); t.setAttribute("aria-live","polite"); }
   const dot=document.createElement("span"); dot.className="ti";
   const txt=document.createElement("span"); txt.textContent=msg;
   t.appendChild(dot); t.appendChild(txt);
@@ -1098,20 +1237,31 @@ function toggleSched(id){
   const s=S.find(x=>x.id===id); if(!s) return;
   s.enabled=!s.enabled;
   if(!s.enabled) s.next_run=null;
-  else if(!s.next_run) s.next_run="2026-06-01T03:00:00Z";
+  else s.next_run=nextRunFromCron(s.cron); // compute real next fire; null → "pending"
   toast(s.name+" "+(s.enabled?'switched on':'paused'), s.enabled?null:"warn");
   renderAll();
   if(document.getElementById("drawer").classList.contains("open")) openDrawer(id);
 }
 function runNow(id){
   const s=S.find(x=>x.id===id); if(!s) return;
+  // guard: already running → no-op (don't stack a second run)
+  if(s.last_status==="running"){ toast(s.name+" is already running","run"); return; }
+  // guard: paused job → confirm a one-off force-run, but stay paused after
+  if(!s.enabled){
+    if(!confirm(s.name+" is paused. Run it once now anyway? It will stay paused afterward.")) return;
+  }
+  const prevStatus=s.last_status;
   toast("Running "+s.name+"…","run");
-  const run={ id:"r"+Date.now(), schedule:s.name, scope:s.scope, status:"running", started:new Date().toISOString(), duration_ms:null, result:null };
-  R.unshift(run); renderRuns();
+  const run={ id:"r"+Date.now(), schedule:s.name, scope:s.scope, status:"running", started:new Date(NOW).toISOString(), duration_ms:null, result:null };
+  R.unshift(run);
+  s.last_status="running"; s.last_run=run.started;
+  renderAll();
+  if(document.getElementById("drawer").classList.contains("open")) openDrawer(id);
   setTimeout(function(){
     run.status="completed"; run.duration_ms=Math.floor(400+Math.random()*1200); run.result="manual run ok";
-    s.last_status="completed"; s.last_run=run.started;
+    s.last_status="completed";
     toast(s.name+" finished cleanly"); renderAll();
+    if(document.getElementById("drawer").classList.contains("open")) openDrawer(id);
   }, 1600);
 }
 function delSched(id){
@@ -1163,15 +1313,44 @@ document.getElementById("schForm").addEventListener("submit",function(e){
   if(!ok){ toast("Please fix the highlighted fields","warn"); return; }
 
   const enabled=document.getElementById("i-enabled").getAttribute("aria-checked")==="true";
+  const requiresLlm=document.getElementById("i-llm").getAttribute("aria-checked")==="true";
+  const scopeVal=f.scope.value;
+  const taskType=f.task_type.value.trim()||"custom.job";
+  const desc=f.desc.value.trim()||"Custom automation.";
+  const editId=f.dataset.editId;
+
+  if(editId){
+    /* ---- EDIT: mutate the existing schedule in place (no new row) ---- */
+    const s=S.find(x=>x.id===editId);
+    if(s){
+      const oldName=s.name;
+      s.name=name; s.scope=scopeVal; s.cron=cron; s.task_type=taskType;
+      s.enabled=enabled; s.requires_llm=requiresLlm;
+      if(!enabled) s.next_run=null;
+      else if(!s.next_run) s.next_run=nextRunFromCron(cron);
+      /* carry / re-key the EXPLAIN entry so the name stays in sync */
+      const prev=EXPLAIN[oldName]||{};
+      if(oldName!==name) delete EXPLAIN[oldName];
+      EXPLAIN[name]=Object.assign({}, prev, { desc:desc, what:desc });
+      if(!prev.why) EXPLAIN[name].why="You created this job.";
+      if(!prev.matters) EXPLAIN[name].matters="It runs on the schedule you set.";
+    }
+    delete f.dataset.editId;
+    closeModal(); renderAll();
+    toast(name+" updated");
+    return;
+  }
+
+  /* ---- CREATE: add one new schedule ---- */
   const newS={
-    id:"n"+Date.now(), name:name, scope:f.scope.value,
-    cron:cron, task_type:f.task_type.value.trim()||"custom.job",
+    id:"n"+Date.now(), name:name, scope:scopeVal,
+    cron:cron, task_type:taskType,
     enabled:enabled,
-    requires_llm:document.getElementById("i-llm").getAttribute("aria-checked")==="true",
+    requires_llm:requiresLlm,
     last_run:null, last_status:null,
-    next_run:enabled?"2026-06-01T03:00:00Z":null
+    next_run:enabled?nextRunFromCron(cron):null
   };
-  EXPLAIN[name]={ desc:f.desc.value.trim()||"Custom automation.", what:f.desc.value.trim()||"Custom automation.", why:"You created this job.", matters:"It runs on the schedule you set." };
+  EXPLAIN[name]={ desc:desc, what:desc, why:"You created this job.", matters:"It runs on the schedule you set." };
   S.push(newS);
   closeModal(); renderAll();
   toast(name+" created");
@@ -1179,6 +1358,8 @@ document.getElementById("schForm").addEventListener("submit",function(e){
 
 function openModal(prefill){
   const f=document.getElementById("schForm"); f.reset();
+  delete f.dataset.editId;                       // default to CREATE; edit path sets it below
+  modalLastFocus=document.activeElement;
   ["f-name","f-cron","f-payload"].forEach(id=>document.getElementById(id).classList.remove("invalid"));
   setHint("f-cron","Pick a preset, or type a cron expression.","");
   setHint("f-payload","Must be valid JSON, or empty.","");
@@ -1186,10 +1367,13 @@ function openModal(prefill){
   document.getElementById("i-enabled").setAttribute("aria-checked","true");
   document.getElementById("i-llm").setAttribute("aria-checked","false");
   document.getElementById("modalTitle").textContent="New automation";
+  document.querySelector("#schForm button[type=submit]").textContent="Create automation";
   if(prefill){
     const s=S.find(x=>x.id===prefill);
     if(s){
+      f.dataset.editId=s.id;                     // carry the edited id → submit mutates in place
       document.getElementById("modalTitle").textContent="Edit automation";
+      document.querySelector("#schForm button[type=submit]").textContent="Save changes";
       f.name.value=s.name; f.desc.value=(EXPLAIN[s.name]||{}).desc||"";
       f.cron.value=s.cron; f.cron.dispatchEvent(new Event("input"));
       f.scope.value=s.scope; f.task_type.value=s.task_type;
@@ -1198,22 +1382,54 @@ function openModal(prefill){
     }
   }
   document.getElementById("modalScrim").classList.add("open");
+  setInert(true);
   setTimeout(()=>document.getElementById("i-name").focus(),80);
 }
-function closeModal(){ document.getElementById("modalScrim").classList.remove("open"); }
+function closeModal(){
+  document.getElementById("modalScrim").classList.remove("open");
+  const f=document.getElementById("schForm");
+  const editedId = f ? f.dataset.editId : null;
+  if(f) delete f.dataset.editId;
+  if(!anyOverlayOpen()) setInert(false);
+  // restore focus to the trigger; if a re-render detached it (edit path),
+  // fall back to the edited/affected row so focus never lands on <body>.
+  let target = modalLastFocus;
+  if(!target || !document.body.contains(target)){
+    target = editedId ? document.querySelector('tr[data-id="'+editedId+'"]')
+                      : document.getElementById("newBtn");
+  }
+  if(target && document.body.contains(target)) target.focus();
+  modalLastFocus=null;
+}
 
 /* =================== global event wiring =================== */
+/* NOTE: capture phase is required — the row-action wrappers (.rowacts /
+   .enabled-cell) call event.stopPropagation() in the bubble phase to stop a
+   row click from opening the drawer. A bubble-phase delegated listener here
+   would therefore never see edit/run/delete/toggle clicks. Capturing on the
+   document runs BEFORE those stopPropagation calls, so all actions fire. */
 document.addEventListener("click",function(e){
-  const t=e.target.closest("[data-id],[data-toggle],[data-run],[data-del],[data-edit],[data-open-sched],[data-rerun]");
+  // expand/collapse a failed run's error detail
+  const xb=e.target.closest("[data-runfail-btn]");
+  if(xb){
+    const panel=document.getElementById("rf-"+xb.dataset.runfailBtn);
+    const open=xb.getAttribute("aria-expanded")==="true";
+    xb.setAttribute("aria-expanded",String(!open));
+    xb.textContent=open?"View error":"Hide error";
+    if(panel) panel.hidden=open;
+    return;
+  }
+  const t=e.target.closest("[data-id],[data-toggle],[data-run],[data-del],[data-edit],[data-open-sched],[data-rerun],[data-rerun-sched]");
   if(!t) return;
   if(t.dataset.openSched){ openDrawer(t.dataset.openSched); return; }
   if(t.dataset.rerun){ const s=S.find(x=>x.name===t.dataset.rerun); if(s) runNow(s.id); return; }
+  if(t.dataset.rerunSched){ const s=S.find(x=>x.name===t.dataset.rerunSched); if(s) runNow(s.id); return; }
   if(t.dataset.toggle){ toggleSched(t.dataset.toggle); return; }
-  if(t.dataset.run){ runNow(t.dataset.run); return; }
+  if(t.dataset.run){ if(t.disabled) return; runNow(t.dataset.run); return; }
   if(t.dataset.del){ delSched(t.dataset.del); return; }
   if(t.dataset.edit){ openModal(t.dataset.edit); return; }
   if(t.dataset.id){ openDrawer(t.dataset.id); return; }
-});
+}, true);
 document.getElementById("schBody").addEventListener("keydown",function(e){
   if(e.key==="Enter"||e.key===" "){
     const row=e.target.closest("tr[data-id]");
@@ -1225,8 +1441,8 @@ document.getElementById("schBody").addEventListener("keydown",function(e){
 
 document.querySelectorAll(".scope-tab").forEach(function(tab){
   tab.addEventListener("click",function(){
-    document.querySelectorAll(".scope-tab").forEach(t=>t.setAttribute("aria-selected","false"));
-    tab.setAttribute("aria-selected","true");
+    document.querySelectorAll(".scope-tab").forEach(t=>t.setAttribute("aria-pressed","false"));
+    tab.setAttribute("aria-pressed","true");
     scope=tab.dataset.scope; renderAll();
   });
 });
@@ -1288,6 +1504,20 @@ function onScroll(){
   document.querySelector(".hdr").setAttribute("data-scrolled", window.scrollY>40?"true":"false");
 }
 window.addEventListener("scroll",onScroll,{passive:true});
+
+/* timezone indicator — name the viewer's local zone so absolute times are unambiguous */
+(function(){
+  let tz="your local time";
+  try{
+    const z=Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const abbr=new Date(NOW).toLocaleTimeString("en-US",{timeZoneName:"short"}).split(" ").pop();
+    if(z) tz=z.replace(/_/g," ")+(abbr&&!/^\d/.test(abbr)?" ("+abbr+")":"");
+  }catch(e){}
+  const el=document.getElementById("tzNote");
+  if(el) el.lastChild.textContent=" Times shown in "+tz;
+  el&&el.setAttribute("data-tip","All dates and times on this page are shown in your computer's local timezone: "+tz+". Cron schedules are interpreted in the same zone.");
+  el&&el.classList.add("tip","tip-r");el&&el.setAttribute("tabindex","0");
+})();
 
 /* boot */
 renderAll();
